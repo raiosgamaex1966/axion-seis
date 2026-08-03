@@ -29,15 +29,14 @@ export function Splash({ onDone }) {
 }
 
 export function Nav({ page, onNav, role = "paciente" }) {
+  // Super Admin nao utiliza barra de navegacao inferior pois possui painel master exclusivo
+  if (role === "superadmin") {
+    return null;
+  }
+
   let items = [];
 
-  if (role === "superadmin") {
-    items = [
-      { id: "superadmin", icon: "👑", label: "Painel SaaS" },
-      { id: "admin_hospital", icon: "🏢", label: "Visão Hospital" },
-      { id: "profissional", icon: "🏥", label: "Visão Clínica" },
-    ];
-  } else if (role === "admin_hospital") {
+  if (role === "admin_hospital") {
     items = [
       { id: "admin_hospital", icon: "🏢", label: "Admin Hospital" },
       { id: "profissional", icon: "🏥", label: "Painel Clínico" },
