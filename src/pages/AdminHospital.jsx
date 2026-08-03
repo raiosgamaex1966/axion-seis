@@ -7,7 +7,10 @@ import { PatientService, supabase } from '../services/supabaseClient';
 export function AdminHospital({ onBack, onSair, hospital }) {
   const [tab, setTab] = useState("equipe"); // equipe | lista_pacientes | cadastrar_prof | cadastrar_paciente
 
-  const nomeHospital = hospital?.nome || hospital?.email_admin || "Sua Unidade Hospitalar";
+  // Garantir que o nome do hospital seja sempre o nome da unidade e NUNCA o e-mail do administrador
+  const nomeHospital = (hospital?.nome && !hospital.nome.includes("@"))
+    ? hospital.nome
+    : (hospital?.nome_unidade || "Hospital Doutor Luiz Sampa");
 
   // Profissionais da Unidade (Inicia Vazio para nao misturar dados ficticios)
   const [equipe, setEquipe] = useState([]);
