@@ -21,9 +21,13 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
   // Form Profissional / Admin
   const [credenciais, setCredenciais] = useState({ email: "", senha: "" });
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   
   // Form Troca de Senha Obrigatória (Primeiro Acesso)
   const [trocaSenha, setTrocaSenha] = useState({ novaSenha: "", confirmaSenha: "" });
+  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
+  const [mostrarConfirmaSenha, setMostrarConfirmaSenha] = useState(false);
+
   const [profPrimeiroAcesso, setProfPrimeiroAcesso] = useState(null);
   const [hospitalPrimeiroAcesso, setHospitalPrimeiroAcesso] = useState(null);
 
@@ -97,16 +101,18 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // LOGIN DO SUPER ADMIN SAAS (Robson)
+    const senhaDigitada = credenciais.senha.trim();
+    const termo = credenciais.email.toLowerCase().trim();
+
+    // 1. LOGIN DO SUPER ADMIN SAAS (Robson)
     if (perfilAcesso === "superadmin") {
-      const emailLimpo = credenciais.email.toLowerCase().trim();
-      if (emailLimpo !== "robsoncordeiro1966@gmail.com") {
+      if (termo !== "robsoncordeiro1966@gmail.com") {
         setErroLogin("❌ E-mail não autorizado para o painel Super Admin Master.");
         return;
       }
       
-      if (credenciais.senha !== "Binho2020") {
-        setErroLogin("❌ Senha incorreta para o Super Admin Master.");
+      if (senhaDigitada !== "Binho2020") {
+        setErroLogin("❌ Senha master incorreta para o Super Admin.");
         return;
       }
 
@@ -114,9 +120,8 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR
+    // 2. LOGIN DO ADMIN DA UNIDADE HOSPITALAR
     if (perfilAcesso === "admin_hospital") {
-      const termo = credenciais.email.toLowerCase().trim();
       let hospEncontrado = null;
 
       if (supabase) {
@@ -125,9 +130,9 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
             .from('hospitais_clinicas')
             .select('*')
             .or(`email_admin.ilike.%${termo}%,nome.ilike.%${termo}%`)
-            .single();
+            .limit(1);
 
-          if (data) hospEncontrado = data;
+          if (data && data.length > 0) hospEncontrado = data[0];
         } catch (e) {}
       }
 
@@ -136,43 +141,65 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
         if (todosHospitais[termo]) hospEncontrado = todosHospitais[termo];
       }
 
-      const hospObjeto = hospEncontrado || { id: Date.now().toString(), nome: credenciais.email.trim(), email_admin: credenciais.email.trim() };
+      if (!hospEncontrado) {
+        setErroLogin("❌ Unidade ou E-mail do Administrador não encontrado.");
+        return;
+      }
 
-      if (hospEncontrado && (hospEncontrado.primeiro_acesso || hospEncontrado.primeiroAcesso)) {
-        setHospitalPrimeiroAcesso(hospObjeto);
+      // Validação estrita LGPD da senha digitada (Provisória ou Definitiva)
+      const senhaCorreta = hospEncontrado.senha_provisoria || hospEncontrado.senha;
+      if (senhaCorreta && senhaDigitada !== senhaCorreta) {
+        setErroLogin("❌ Senha incorreta. Digite exatamente a senha fornecida pelo Super Admin.");
+        return;
+      }
+
+      // Se a senha bateu E for o Primeiro Acesso, força a troca de senha
+      if (hospEncontrado.primeiro_acesso || hospEncontrado.primeiroAcesso) {
+        setHospitalPrimeiroAcesso(hospEncontrado);
         setModo("trocar_senha_admin");
         setErroLogin("");
         return;
       }
 
-      onEntrarAdminHospital(hospObjeto);
+      onEntrarAdminHospital(hospEncontrado);
       return;
     }
 
-    // LOGIN DOS PROFISSIONAIS DA SAÚDE
-    const emailLimpo = credenciais.email.toLowerCase().trim();
+    // 3. LOGIN DOS PROFISSIONAIS DA SAÚDE (Médicos, Enfermeiros, Técnicos)
     let profEncontrado = null;
 
     if (supabase) {
       try {
-        const { data } = await supabase.from('profissionais').select('*').eq('email', emailLimpo).single();
+        const { data } = await supabase.from('profissionais').select('*').eq('email', termo).single();
         if (data) profEncontrado = data;
       } catch (e) {}
     }
 
     if (!profEncontrado) {
       const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
-      if (todosProfs[emailLimpo]) profEncontrado = todosProfs[emailLimpo];
+      if (todosProfs[termo]) profEncontrado = todosProfs[termo];
     }
 
-    if (profEncontrado && (profEncontrado.primeiro_acesso || profEncontrado.primeiroAcesso)) {
+    if (!profEncontrado) {
+      setErroLogin("❌ E-mail profissional não encontrado no sistema.");
+      return;
+    }
+
+    // Validação estrita LGPD da senha do profissional
+    const senhaCorretaProf = profEncontrado.senha_provisoria || profEncontrado.senha;
+    if (senhaCorretaProf && senhaDigitada !== senhaCorretaProf) {
+      setErroLogin("❌ Senha incorreta. Digite exatamente a senha fornecida pelo administrador do hospital.");
+      return;
+    }
+
+    if (profEncontrado.primeiro_acesso || profEncontrado.primeiroAcesso) {
       setProfPrimeiroAcesso(profEncontrado);
       setModo("trocar_senha");
       setErroLogin("");
       return;
     }
 
-    onEntrarMedico({ nome: profEncontrado?.nome || emailLimpo.split("@")[0], cargo: profEncontrado?.cargo || "medico", role: "medico" });
+    onEntrarMedico({ nome: profEncontrado?.nome || termo.split("@")[0], cargo: profEncontrado?.cargo || "medico", role: "medico" });
   };
 
   const salvarNovaSenhaPrimeiroAcesso = async () => {
@@ -186,30 +213,43 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     }
 
     if (modo === "trocar_senha_admin") {
+      const hospAtualizado = { ...hospitalPrimeiroAcesso, primeiro_acesso: false, primeiroAcesso: false, senha: trocaSenha.novaSenha, senha_provisoria: null };
+      
       if (supabase && hospitalPrimeiroAcesso?.id) {
         try {
           await supabase.from('hospitais_clinicas').update({
             primeiro_acesso: false,
-            senha_provisoria: null
+            senha_provisoria: null,
+            senha: trocaSenha.novaSenha
           }).eq('id', hospitalPrimeiroAcesso.id);
         } catch (e) {}
       }
-      onEntrarAdminHospital(hospitalPrimeiroAcesso);
+
+      const todosHospitais = JSON.parse(localStorage.getItem('axion_hospitais') || '{}');
+      if (hospitalPrimeiroAcesso?.email_admin) {
+        todosHospitais[hospitalPrimeiroAcesso.email_admin] = hospAtualizado;
+        localStorage.setItem('axion_hospitais', JSON.stringify(todosHospitais));
+      }
+
+      onEntrarAdminHospital(hospAtualizado);
       return;
     }
+
+    const profAtualizado = { ...profPrimeiroAcesso, primeiro_acesso: false, primeiroAcesso: false, senha: trocaSenha.novaSenha, senha_provisoria: null };
 
     if (supabase && profPrimeiroAcesso?.email) {
       try {
         await supabase.from('profissionais').update({
           primeiro_acesso: false,
-          senha_provisoria: null
+          senha_provisoria: null,
+          senha: trocaSenha.novaSenha
         }).eq('email', profPrimeiroAcesso.email);
       } catch (e) {}
     }
 
     const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
-    if (profPrimeiroAcesso?.email && todosProfs[profPrimeiroAcesso.email]) {
-      todosProfs[profPrimeiroAcesso.email].primeiro_acesso = false;
+    if (profPrimeiroAcesso?.email) {
+      todosProfs[profPrimeiroAcesso.email] = profAtualizado;
       localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
     }
 
@@ -344,9 +384,16 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
                 <label style={labelStyle}>E-MAIL PROFISSIONAL *</label>
                 <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="prof@hospital.com" style={inputStyle} />
               </div>
+
+              {/* Campo Senha com Olhinho Toggle */}
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>SENHA DE ACESSO *</label>
-                <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarSenha ? "text" : "password"} value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
@@ -365,12 +412,22 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
               <div style={{ marginBottom: 14 }}>
                 <label style={{ ...labelStyle, color: C.gold }}>CADASTRAR NOVA SENHA *</label>
-                <input type="password" value={trocaSenha.novaSenha} onChange={e => setTrocaSenha(p => ({ ...p, novaSenha: e.target.value }))} placeholder="Mínimo 6 caracteres" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarNovaSenha ? "text" : "password"} value={trocaSenha.novaSenha} onChange={e => setTrocaSenha(p => ({ ...p, novaSenha: e.target.value }))} placeholder="Mínimo 6 caracteres" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarNovaSenha(!mostrarNovaSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarNovaSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginBottom: 16 }}>
                 <label style={{ ...labelStyle, color: C.gold }}>CONFIRMAR NOVA SENHA *</label>
-                <input type="password" value={trocaSenha.confirmaSenha} onChange={e => setTrocaSenha(p => ({ ...p, confirmaSenha: e.target.value }))} placeholder="Repita a nova senha" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarConfirmaSenha ? "text" : "password"} value={trocaSenha.confirmaSenha} onChange={e => setTrocaSenha(p => ({ ...p, confirmaSenha: e.target.value }))} placeholder="Repita a nova senha" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarConfirmaSenha(!mostrarConfirmaSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarConfirmaSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 12, textAlign: "center" }}>{erroLogin}</div>}
@@ -395,9 +452,16 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
                 <label style={labelStyle}>NOME DA UNIDADE OU E-MAIL DO ADMIN *</label>
                 <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="Ex: Hospital Doutor Luiz Sampa" style={inputStyle} />
               </div>
+
+              {/* Campo Senha com Olhinho Toggle */}
               <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>SENHA DE ACESSO *</label>
-                <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
+                <label style={labelStyle}>SENHA PROVISÓRIA / ACESSO *</label>
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarSenha ? "text" : "password"} value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
@@ -417,12 +481,22 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
               <div style={{ marginBottom: 14 }}>
                 <label style={{ ...labelStyle, color: C.purple }}>CADASTRAR NOVA SENHA DO GESTOR *</label>
-                <input type="password" value={trocaSenha.novaSenha} onChange={e => setTrocaSenha(p => ({ ...p, novaSenha: e.target.value }))} placeholder="Mínimo 6 caracteres" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarNovaSenha ? "text" : "password"} value={trocaSenha.novaSenha} onChange={e => setTrocaSenha(p => ({ ...p, novaSenha: e.target.value }))} placeholder="Mínimo 6 caracteres" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarNovaSenha(!mostrarNovaSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarNovaSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginBottom: 16 }}>
                 <label style={{ ...labelStyle, color: C.purple }}>CONFIRMAR NOVA SENHA *</label>
-                <input type="password" value={trocaSenha.confirmaSenha} onChange={e => setTrocaSenha(p => ({ ...p, confirmaSenha: e.target.value }))} placeholder="Repita a nova senha" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+                  <input type={mostrarConfirmaSenha ? "text" : "password"} value={trocaSenha.confirmaSenha} onChange={e => setTrocaSenha(p => ({ ...p, confirmaSenha: e.target.value }))} placeholder="Repita a nova senha" style={{ ...inputStyle, paddingRight: 40 }} />
+                  <button type="button" onClick={() => setMostrarConfirmaSenha(!mostrarConfirmaSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                    {mostrarConfirmaSenha ? "🙈" : "👁️"}
+                  </button>
+                </div>
               </div>
 
               {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 12, textAlign: "center" }}>{erroLogin}</div>}
@@ -445,9 +519,16 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
             <label style={{ ...labelStyle, color: C.gold }}>E-MAIL MASTER DE ADMINISTRADOR *</label>
             <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="robsoncordeiro1966@gmail.com" style={inputStyle} />
           </div>
+
+          {/* Campo Senha com Olhinho Toggle */}
           <div style={{ marginBottom: 16 }}>
             <label style={{ ...labelStyle, color: C.gold }}>SENHA MASTER DE ACESSO *</label>
-            <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="Digite sua senha master" style={inputStyle} />
+            <div style={{ position: "relative" }}>
+              <input type={mostrarSenha ? "text" : "password"} value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="Digite sua senha master" style={{ ...inputStyle, paddingRight: 40 }} />
+              <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                {mostrarSenha ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
@@ -486,7 +567,7 @@ function TelaCodigoGerado({ perfil, onContinuar }) {
           {copiado ? "✓ Código Copiado para a Área de Transferência!" : "📋 Copiar Código de Acesso"}
         </button>
 
-        <button onClick={onContinuar} style={{ width: "100%", padding: "15px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 15 }}>
+        <button onClick={onContinuar} style={{ width: "100%", padding: "15px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 800, fontSize: 15 }}>
           Entrar no AXION →
         </button>
       </div>
