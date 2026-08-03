@@ -23,7 +23,6 @@ export function AdminHospital({ onBack, onSair }) {
   const [novoPac, setNovoPac] = useState({ nome: "", idade: "", sexo: "Masculino", tipo: "Próstata", medico: "Dr. Roberto Oncologia", totalSessoes: 30 });
   const [pacienteGerado, setPacienteGerado] = useState(null);
   const [copiado, setCopiado] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
 
   const cadastrarProfissional = async () => {
     if (!novoProf.nome || !novoProf.email) return;
@@ -46,7 +45,6 @@ export function AdminHospital({ onBack, onSair }) {
       } catch (e) {}
     }
 
-    // Salva localmente para simulação
     const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
     todosProfs[prof.email] = prof;
     localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
@@ -56,12 +54,22 @@ export function AdminHospital({ onBack, onSair }) {
     setNovoProf({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
   };
 
+  const gerarTextoCredenciaisProf = () => {
+    if (!profCadastrado) return "";
+    return `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\n⚠️ *Segurança:* No seu primeiro acesso, o sistema exigirá o cadastramento da sua nova senha pessoal.`;
+  };
+
   const copiarCredenciaisProf = () => {
-    if (!profCadastrado) return;
-    const texto = `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\nNo primeiro acesso, você deverá cadastrar sua nova senha pessoal.`;
+    const texto = gerarTextoCredenciaisProf();
     navigator.clipboard.writeText(texto);
     setCopiadoProf(true);
     setTimeout(() => setCopiadoProf(false), 3000);
+  };
+
+  const abrirWhatsAppWebProf = () => {
+    const texto = gerarTextoCredenciaisProf();
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
   };
 
   const cadastrarPacienteNaUnidade = async () => {
@@ -89,6 +97,13 @@ export function AdminHospital({ onBack, onSair }) {
     navigator.clipboard.writeText(pacienteGerado.codigo);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 3000);
+  };
+
+  const abrirWhatsAppWebPaciente = () => {
+    if (!pacienteGerado) return;
+    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${pacienteGerado.nome},\nSeu cadastro no AXION foi realizado.\n\n• *Seu Código Único:* ${pacienteGerado.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
   };
 
   const cargoLabel = { medico: "👨‍⚕️ Médico Oncologista", enfermeiro: "🩺 Enfermeiro(a)", tecnico: "⚛️ Técnico em Radioterapia" };
@@ -175,7 +190,7 @@ export function AdminHospital({ onBack, onSair }) {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 11, color: C.gold, fontWeight: 800, display: "block", marginBottom: 4 }}>🔑 SENHA PROVISÓRIA GERADA</label>
                   <input value={novoProf.senhaProvisoria} onChange={e => setNovoProf(p => ({ ...p, senhaProvisoria: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1.5px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", color: C.gold, fontSize: 14, fontWeight: 800 }} />
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>O profissional será obrigado a cadastrar uma nova senha no 1º acesso.</div>
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>O profissional será obrigado a trocar a senha no 1º acesso.</div>
                 </div>
 
                 <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
@@ -183,10 +198,10 @@ export function AdminHospital({ onBack, onSair }) {
                 </button>
               </div>
             ) : (
-              <div style={{ background: C.navyL, border: `2px solid ${C.purple}`, borderRadius: 20, padding: "24px", textAlign: "center" }}>
+              <div style={{ background: C.navyL, border: `2px solid ${C.purple}`, borderRadius: 20, padding: "24px", textAlign: "center", animation: "rise 0.3s ease" }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
                 <div style={{ fontSize: 16, fontWeight: 900, color: C.purple, marginBottom: 4 }}>Credenciais Geradas para {profCadastrado.nome}!</div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso abaixo para o profissional. Ele trocará a senha no primeiro login.</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso abaixo para o profissional:</div>
 
                 <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${C.purple}44`, borderRadius: 16, padding: "16px", textAlign: "left", marginBottom: 16, fontSize: 12, lineHeight: 1.7 }}>
                   <div><strong>Cargo:</strong> {profCadastrado.cargo.toUpperCase()}</div>
@@ -195,8 +210,12 @@ export function AdminHospital({ onBack, onSair }) {
                   <div style={{ color: C.teal, marginTop: 4, fontWeight: 700 }}>🔒 Status: Requer Troca Obrigatória de Senha no 1º Acesso.</div>
                 </div>
 
-                <button onClick={copiarCredenciaisProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 14 }}>
-                  {copiadoProf ? "✓ Credenciais Copiadas para Envio!" : "📋 Copiar Dados de Acesso (WhatsApp/E-mail)"}
+                <button onClick={copiarCredenciaisProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                  {copiadoProf ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados de Acesso"}
+                </button>
+
+                <button onClick={abrirWhatsAppWebProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span>💬 Enviar via WhatsApp / Web WhatsApp</span>
                 </button>
 
                 <button onClick={() => setProfCadastrado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
@@ -246,15 +265,19 @@ export function AdminHospital({ onBack, onSair }) {
               <div style={{ background: C.navyL, border: `2px solid ${C.teal}`, borderRadius: 20, padding: "24px", textAlign: "center" }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>🎫</div>
                 <div style={{ fontSize: 16, fontWeight: 900, color: C.teal, marginBottom: 4 }}>Código Gerado para {pacienteGerado.nome}!</div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Copie ou imprima o código abaixo para entregar ao paciente.</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Copie ou envie o código de acesso abaixo:</div>
 
                 <div style={{ background: `${C.teal}18`, border: `2px solid ${C.teal}`, borderRadius: 16, padding: "16px", marginBottom: 16 }}>
                   <div style={{ fontSize: 10, color: C.teal, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>CÓDIGO ÚNICO DO PACIENTE</div>
                   <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, color: C.teal }}>{pacienteGerado.codigo}</div>
                 </div>
 
-                <button onClick={copiarCodigoPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 14 }}>
-                  {copiado ? "✓ Código Copiado para a Área de Transferência!" : "📋 Copiar Código do Paciente"}
+                <button onClick={copiarCodigoPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                  {copiado ? "✓ Código Copiado!" : "📋 Copiar Código do Paciente"}
+                </button>
+
+                <button onClick={abrirWhatsAppWebPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span>💬 Enviar Cartão via WhatsApp / Web WhatsApp</span>
                 </button>
 
                 <button onClick={() => setPacienteGerado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>

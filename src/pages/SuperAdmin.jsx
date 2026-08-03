@@ -58,7 +58,6 @@ export function SuperAdmin({ onBack, onSair }) {
       } catch (e) {}
     }
 
-    // Salva localmente para simulação
     const todosHospitais = JSON.parse(localStorage.getItem('axion_hospitais') || '{}');
     todosHospitais[item.email_admin] = item;
     todosHospitais[item.nome.toLowerCase()] = item;
@@ -77,12 +76,22 @@ export function SuperAdmin({ onBack, onSair }) {
     setSalvando(false);
   };
 
+  const gerarTextoCredenciais = () => {
+    if (!clinicaCadastrada) return "";
+    return `🏥 *Dados de Acesso do Administrador da Unidade AXION*\n\nOlá Gestor,\nSua unidade hospitalar foi cadastrada com sucesso na Plataforma AXION SaaS.\n\n• *Unidade:* ${clinicaCadastrada.nome}\n• *Login do Admin:* ${clinicaCadastrada.email_admin}\n• *Senha Provisória:* ${clinicaCadastrada.senha_provisoria}\n\n⚠️ *Aviso de Segurança:* No seu primeiro login, o sistema exigirá o cadastramento da sua nova senha pessoal e definitiva.`;
+  };
+
   const copiarCredenciaisClinica = () => {
-    if (!clinicaCadastrada) return;
-    const texto = `🏥 *Dados de Acesso do Administrador da Unidade AXION*\n\nUnidade: ${clinicaCadastrada.nome}\n• *E-mail de Login:* ${clinicaCadastrada.email_admin}\n• *Senha Provisória:* ${clinicaCadastrada.senha_provisoria}\n\nNo primeiro acesso, você deverá cadastrar sua nova senha pessoal.`;
+    const texto = gerarTextoCredenciais();
     navigator.clipboard.writeText(texto);
     setCopiadoClinica(true);
     setTimeout(() => setCopiadoClinica(false), 3000);
+  };
+
+  const abrirWhatsAppWeb = () => {
+    const texto = gerarTextoCredenciais();
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -177,10 +186,10 @@ export function SuperAdmin({ onBack, onSair }) {
                 </button>
               </div>
             ) : (
-              <div style={{ background: C.navyL, border: `2px solid ${C.gold}`, borderRadius: 20, padding: "24px", textAlign: "center", marginBottom: 20 }}>
+              <div style={{ background: C.navyL, border: `2px solid ${C.gold}`, borderRadius: 20, padding: "24px", textAlign: "center", marginBottom: 20, animation: "rise 0.3s ease" }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
                 <div style={{ fontSize: 16, fontWeight: 900, color: C.gold, marginBottom: 4 }}>Hospital & Credenciais Cadastradas!</div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso ao Administrador do Hospital. Ele cadastrará a nova senha pessoal no primeiro login.</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso ao Administrador do Hospital abaixo:</div>
 
                 <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${C.gold}44`, borderRadius: 16, padding: "16px", textAlign: "left", marginBottom: 16, fontSize: 12, lineHeight: 1.7 }}>
                   <div><strong>Unidade:</strong> {clinicaCadastrada.nome}</div>
@@ -189,8 +198,14 @@ export function SuperAdmin({ onBack, onSair }) {
                   <div style={{ color: C.teal, marginTop: 4, fontWeight: 700 }}>🔒 Requer troca de senha no 1º Acesso.</div>
                 </div>
 
-                <button onClick={copiarCredenciaisClinica} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.gold}`, background: copiadoClinica ? `${C.gold}22` : "transparent", color: C.gold, fontWeight: 800, fontSize: 13, marginBottom: 14 }}>
-                  {copiadoClinica ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados de Acesso do Admin"}
+                {/* Opção 1: Copiar Dados */}
+                <button onClick={copiarCredenciaisClinica} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.gold}`, background: copiadoClinica ? `${C.gold}22` : "transparent", color: C.gold, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                  {copiadoClinica ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados de Acesso"}
+                </button>
+
+                {/* Opção 2: Enviar direto via WhatsApp Web */}
+                <button onClick={abrirWhatsAppWeb} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <span>💬 Enviar via WhatsApp / Web WhatsApp</span>
                 </button>
 
                 <button onClick={() => setClinicaCadastrada(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
@@ -223,9 +238,9 @@ export function SuperAdmin({ onBack, onSair }) {
                 <br /><br />
                 • <strong>Super Admin (Robson)</strong>: Gestão de Hospitais Contratantes.
                 <br />
-                • <strong>Admin da Unidade Hospitalar</strong>: Gestão de Profissionais da Unidade (Médicos, Enfermeiros, Técnicos) e Emissão de Códigos de Pacientes.
+                • <strong>Admin da Unidade Hospitalar</strong>: Gestão de Profissionais da Unidade e Pacientes.
                 <br />
-                • <strong>Profissionais de Saúde</strong>: Prontuário, Prescrição, Triagem e Baixa de Sessões.
+                • <strong>Profissionais de Saúde</strong>: Prontuário, Prescrição e Baixa de Sessões.
                 <br />
                 • <strong>Paciente</strong>: Acesso Único por Código.
               </div>
