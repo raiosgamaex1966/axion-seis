@@ -1,0 +1,9 @@
+{
+  "appId": "com.axion.radioterapia",
+  "appName": "AXION Radioterapia",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

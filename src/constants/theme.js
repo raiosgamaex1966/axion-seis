@@ -1,0 +1,15 @@
+export const C = {
+  navy: "#0a1628",
+  navyL: "#112240",
+  navyM: "#1a3560",
+  teal: "#00c9b1",
+  pink: "#ff6b9d",
+  blue: "#4fc3f7",
+  gold: "#ffd166",
+  purple: "#b39ddb",
+  green: "#81c784",
+  orange: "#ff9f43",
+  red: "#ff6b6b",
+  text: "#e8f4f8",
+  muted: "#7a9bb5",
+};

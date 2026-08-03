@@ -1,0 +1,22 @@
+# Configuração do Projeto Supabase AXION
+project_id = "sdjmbfgdhtmlunbzqzyx"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+
+[realtime]
+enabled = true

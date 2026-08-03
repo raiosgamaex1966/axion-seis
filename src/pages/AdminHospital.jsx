@@ -1,0 +1,270 @@
+import React, { useState } from 'react';
+import { C } from '../constants/theme';
+import { AreaHeader } from '../components/ui/NavigationControls';
+import { gerarCodigo } from '../utils/codeGenerator';
+import { PatientService, supabase } from '../services/supabaseClient';
+
+export function AdminHospital({ onBack, onSair }) {
+  const [tab, setTab] = useState("equipe"); // equipe | cadastrar_prof | cadastrar_paciente
+
+  // Profissionais da Unidade
+  const [equipe, setEquipe] = useState([
+    { id: 1, nome: "Dr. Roberto Oncologia", email: "roberto@hospital.com", registro: "CRM 12345/SP", cargo: "medico", especialidade: "Oncologia Radioterápica", senhaProvisoria: "Axion@2026" },
+    { id: 2, nome: "Enfª. Juliana Costa", email: "juliana@hospital.com", registro: "COREN 98765/SP", cargo: "enfermeiro", especialidade: "Cuidados Cutâneos & Triagem", senhaProvisoria: "Axion@2026" },
+    { id: 3, nome: "Téc. Marcos Radiologia", email: "marcos@hospital.com", registro: "CRTR 45678/SP", cargo: "tecnico", especialidade: "Operação de Acelerador Linear", senhaProvisoria: "Axion@2026" },
+  ]);
+
+  // Form Profissional
+  const [novoProf, setNovoProf] = useState({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
+  const [profCadastrado, setProfCadastrado] = useState(null);
+  const [copiadoProf, setCopiadoProf] = useState(false);
+
+  // Form Paciente
+  const [novoPac, setNovoPac] = useState({ nome: "", idade: "", sexo: "Masculino", tipo: "Próstata", medico: "Dr. Roberto Oncologia", totalSessoes: 30 });
+  const [pacienteGerado, setPacienteGerado] = useState(null);
+  const [copiado, setCopiado] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
+
+  const cadastrarProfissional = async () => {
+    if (!novoProf.nome || !novoProf.email) return;
+
+    const prof = {
+      id: Date.now(),
+      nome: novoProf.nome,
+      email: novoProf.email.toLowerCase().trim(),
+      registro_profissional: novoProf.registro,
+      cargo: novoProf.cargo,
+      especialidade: novoProf.especialidade || "Radioterapia Oncologia",
+      senha_provisoria: novoProf.senhaProvisoria,
+      primeiro_acesso: true,
+      ativo: true
+    };
+
+    if (supabase) {
+      try {
+        await supabase.from('profissionais').upsert([prof]);
+      } catch (e) {}
+    }
+
+    // Salva localmente para simulação
+    const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
+    todosProfs[prof.email] = prof;
+    localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
+
+    setEquipe(prev => [prof, ...prev]);
+    setProfCadastrado(prof);
+    setNovoProf({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
+  };
+
+  const copiarCredenciaisProf = () => {
+    if (!profCadastrado) return;
+    const texto = `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\nNo primeiro acesso, você deverá cadastrar sua nova senha pessoal.`;
+    navigator.clipboard.writeText(texto);
+    setCopiadoProf(true);
+    setTimeout(() => setCopiadoProf(false), 3000);
+  };
+
+  const cadastrarPacienteNaUnidade = async () => {
+    if (!novoPac.nome || !novoPac.tipo) return;
+    const codigo = gerarCodigo();
+    const pac = {
+      codigo,
+      nome: novoPac.nome,
+      idade: parseInt(novoPac.idade) || 50,
+      sexo: novoPac.sexo,
+      tipo: novoPac.tipo,
+      medico: novoPac.medico,
+      hospital: "Hospital de Câncer AXION",
+      totalSessoes: parseInt(novoPac.totalSessoes) || 30,
+      sessaoAtual: 0,
+      role: "paciente"
+    };
+
+    await PatientService.savePatient(pac);
+    setPacienteGerado(pac);
+  };
+
+  const copiarCodigoPaciente = () => {
+    if (!pacienteGerado) return;
+    navigator.clipboard.writeText(pacienteGerado.codigo);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 3000);
+  };
+
+  const cargoLabel = { medico: "👨‍⚕️ Médico Oncologista", enfermeiro: "🩺 Enfermeiro(a)", tecnico: "⚛️ Técnico em Radioterapia" };
+  const cargoBadge = { medico: C.purple, enfermeiro: C.pink, tecnico: C.blue };
+
+  return (
+    <div style={{ paddingBottom: 100 }}>
+      {/* Header Admin da Unidade */}
+      <div style={{ background: `linear-gradient(135deg,${C.navyL},${C.navyM})`, padding: "48px 20px 20px", borderBottom: `2px solid ${C.purple}44` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          <button onClick={onBack} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 12, width: 40, height: 40, color: C.text, fontSize: 18, flexShrink: 0 }}>←</button>
+          <div>
+            <div style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 2 }}>ADMIN DA UNIDADE HOSPITALAR</div>
+            <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", color: C.purple }}>Gestão de Saúde 🏢</div>
+          </div>
+          {onSair && (
+            <button onClick={onSair} title="Sair do painel" style={{ marginLeft: "auto", background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 12, padding: "8px 14px", color: C.pink, fontSize: 11, fontWeight: 800 }}>
+              Sair 🚪
+            </button>
+          )}
+        </div>
+
+        {/* Tab Selector */}
+        <div style={{ display: "flex", gap: 4, background: C.navyM, padding: 4, borderRadius: 14 }}>
+          {[["equipe", "👥 Equipe"], ["cadastrar_prof", "＋ Profissional"], ["cadastrar_paciente", "＋ Paciente"]].map(([k, label]) => (
+            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); }} style={{ flex: 1, padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "20px" }}>
+        {/* TAB 1: EQUIPE DA UNIDADE */}
+        {tab === "equipe" && (
+          <div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PROFISSIONAIS CADASTRADOS NA UNIDADE ({equipe.length})</div>
+            {equipe.map((p, i) => (
+              <div key={i} style={{ background: C.navyL, border: `1.5px solid ${cargoBadge[p.cargo] || C.navyM}44`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
+                  <span style={{ fontSize: 10, background: `${cargoBadge[p.cargo] || C.purple}22`, color: cargoBadge[p.cargo] || C.purple, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>
+                    {cargoLabel[p.cargo] || p.cargo}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Registro: {p.registro || p.registro_profissional || "CRM/COREN"} — {p.email}</div>
+                <div style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>🔑 Senha Provisória: {p.senha_provisoria || p.senhaProvisoria || "Axion@2026"} (Troca no 1º Acesso)</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* TAB 2: CADASTRO DE MÉDICOS, ENFERMEIROS E TÉCNICOS COM SENHA PROVISÓRIA */}
+        {tab === "cadastrar_prof" && (
+          <div>
+            {!profCadastrado ? (
+              <div style={{ background: C.navyL, border: `1.5px solid ${C.purple}44`, borderRadius: 20, padding: "20px" }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.purple, marginBottom: 12 }}>➕ Cadastrar Novo Profissional na Unidade</div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>CARGO DO PROFISSIONAL *</label>
+                  <select value={novoProf.cargo} onChange={e => setNovoProf(p => ({ ...p, cargo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }}>
+                    <option value="medico">👨‍⚕️ Médico Oncologista</option>
+                    <option value="enfermeiro">🩺 Enfermeiro(a) Oncologia</option>
+                    <option value="tecnico">⚛️ Técnico em Radioterapia</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO *</label>
+                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Roberto Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>E-MAIL PROFISSIONAL (LOGIN) *</label>
+                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="medico@hospital.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>REGISTRO PROFISSIONAL (CRM / COREN / CRTR)</label>
+                  <input value={novoProf.registro} onChange={e => setNovoProf(p => ({ ...p, registro: e.target.value }))} placeholder="Ex: CRM 12345/SP" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 11, color: C.gold, fontWeight: 800, display: "block", marginBottom: 4 }}>🔑 SENHA PROVISÓRIA GERADA</label>
+                  <input value={novoProf.senhaProvisoria} onChange={e => setNovoProf(p => ({ ...p, senhaProvisoria: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1.5px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", color: C.gold, fontSize: 14, fontWeight: 800 }} />
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>O profissional será obrigado a cadastrar uma nova senha no 1º acesso.</div>
+                </div>
+
+                <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
+                  ➕ Cadastrar Profissional e Gerar Credenciais
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: C.navyL, border: `2px solid ${C.purple}`, borderRadius: 20, padding: "24px", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: C.purple, marginBottom: 4 }}>Credenciais Geradas para {profCadastrado.nome}!</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso abaixo para o profissional. Ele trocará a senha no primeiro login.</div>
+
+                <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${C.purple}44`, borderRadius: 16, padding: "16px", textAlign: "left", marginBottom: 16, fontSize: 12, lineHeight: 1.7 }}>
+                  <div><strong>Cargo:</strong> {profCadastrado.cargo.toUpperCase()}</div>
+                  <div><strong>E-mail:</strong> {profCadastrado.email}</div>
+                  <div><strong>Senha Provisória:</strong> <span style={{ color: C.gold, fontWeight: 800 }}>{profCadastrado.senha_provisoria}</span></div>
+                  <div style={{ color: C.teal, marginTop: 4, fontWeight: 700 }}>🔒 Status: Requer Troca Obrigatória de Senha no 1º Acesso.</div>
+                </div>
+
+                <button onClick={copiarCredenciaisProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 14 }}>
+                  {copiadoProf ? "✓ Credenciais Copiadas para Envio!" : "📋 Copiar Dados de Acesso (WhatsApp/E-mail)"}
+                </button>
+
+                <button onClick={() => setProfCadastrado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
+                  ← Cadastrar outro profissional
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: ADMITIR PACIENTE E EMITIR CÓDIGO */}
+        {tab === "cadastrar_paciente" && (
+          <div>
+            {!pacienteGerado ? (
+              <div style={{ background: C.navyL, border: `1.5px solid ${C.teal}44`, borderRadius: 20, padding: "20px" }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.teal, marginBottom: 12 }}>🎟️ Admitir Paciente & Gerar Código de Acesso</div>
+                
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO DO PACIENTE *</label>
+                  <input value={novoPac.nome} onChange={e => setNovoPac(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Carlos Eduardo Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>IDADE</label>
+                    <input type="number" value={novoPac.idade} onChange={e => setNovoPac(p => ({ ...p, idade: e.target.value }))} placeholder="55" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>SEXO</label>
+                    <select value={novoPac.sexo} onChange={e => setNovoPac(p => ({ ...p, sexo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }}>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TIPO DE TRATAMENTO RADIOTERÁPICO *</label>
+                  <input value={novoPac.tipo} onChange={e => setNovoPac(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Mama, Próstata, Pulmão..." style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <button onClick={cadastrarPacienteNaUnidade} disabled={!novoPac.nome || !novoPac.tipo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
+                  🎟️ Salvar e Emitir Cartão de Acesso
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: C.navyL, border: `2px solid ${C.teal}`, borderRadius: 20, padding: "24px", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>🎫</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: C.teal, marginBottom: 4 }}>Código Gerado para {pacienteGerado.nome}!</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Copie ou imprima o código abaixo para entregar ao paciente.</div>
+
+                <div style={{ background: `${C.teal}18`, border: `2px solid ${C.teal}`, borderRadius: 16, padding: "16px", marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, color: C.teal, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>CÓDIGO ÚNICO DO PACIENTE</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, color: C.teal }}>{pacienteGerado.codigo}</div>
+                </div>
+
+                <button onClick={copiarCodigoPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 14 }}>
+                  {copiado ? "✓ Código Copiado para a Área de Transferência!" : "📋 Copiar Código do Paciente"}
+                </button>
+
+                <button onClick={() => setPacienteGerado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
+                  ← Cadastrar outro paciente
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
