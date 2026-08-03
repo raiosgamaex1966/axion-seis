@@ -110,12 +110,12 @@ export function App() {
     feminina: <Feminina onBack={() => setPage("home")} />,
     masculina: <Masculina onBack={() => setPage("home")} />,
     kids: <Kids onBack={() => setPage("home")} />,
-    profissional: <Profissional onBack={() => setPage("home")} onSair={sair} userRole={role} />,
+    profissional: <Profissional onBack={sair} onSair={sair} userRole={role} />,
     direitos: <Direitos onBack={() => setPage("home")} />,
     jogos: <Jogos onBack={() => setPage("home")} />,
     ia: <AssistenteIA onBack={() => setPage("home")} />,
-    admin_hospital: <AdminHospital onBack={() => setPage("home")} onSair={sair} hospital={hospitalAtivo} />,
-    superadmin: <SuperAdmin onBack={() => setPage("home")} onSair={sair} />,
+    admin_hospital: <AdminHospital onBack={sair} onSair={sair} hospital={hospitalAtivo} />,
+    superadmin: <SuperAdmin onBack={sair} onSair={sair} />,
   };
 
   const mostrarLogin = pronto && !splash && !role;
