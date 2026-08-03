@@ -19,7 +19,7 @@ export function Splash({ onDone }) {
       </div>
       <div style={{ textAlign: "center", animation: "rise 0.6s ease 0.3s both" }}>
         <div style={{ fontSize: 46, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", letterSpacing: 4, background: `linear-gradient(135deg,${C.teal},${C.blue})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AXION</div>
-        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 3, marginTop: 6 }}>PLATAFORMA SAAS MULTI-TENANT</div>
+        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 3, marginTop: 6 }}>RADIOTERAPIA HUMANIZADA</div>
       </div>
       <div style={{ width: 210, height: 3, background: C.navyM, borderRadius: 99, overflow: "hidden", animation: "rise 0.6s ease 0.5s both" }}>
         <div style={{ height: "100%", background: `linear-gradient(90deg,${C.teal},${C.blue})`, borderRadius: 99, animation: "barFill 1.3s ease 0.4s forwards", width: 0 }} />
@@ -59,41 +59,18 @@ export function Nav({ page, onNav, role = "paciente" }) {
     ];
   }
 
-  const roleColors = { superadmin: C.gold, admin_hospital: C.purple, medico: C.blue, paciente: C.teal };
-
   return (
-    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, width: "100%", maxWidth: 430, margin: "0 auto", background: C.navyL, borderTop: `1px solid ${C.navyM}`, display: "flex", padding: "8px 0 14px", zIndex: 100, backdropFilter: "blur(20px)" }}>
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.navyL, borderTop: `1px solid ${C.navyM}`, display: "flex", justifyContent: "space-around", padding: "10px 0 16px", zIndex: 1000, maxWidth: 430, margin: "0 auto" }}>
       {items.map(item => (
-        <button key={item.id} onClick={() => onNav(item.id)} style={{ flex: 1, background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 0" }}>
-          <div style={{
-            fontSize: 20,
-            filter: page === item.id ? "none" : "grayscale(80%) opacity(0.45)",
-            transition: "filter 0.2s"
-          }}>{item.icon}</div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: page === item.id ? (roleColors[role] || C.teal) : C.muted, transition: "color 0.2s" }}>{item.label}</div>
+        <button key={item.id} onClick={() => onNav(item.id)} style={{ background: "none", border: "none", color: page === item.id ? C.teal : C.muted, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 10, fontWeight: page === item.id ? 800 : 500, transition: "all 0.2s" }}>
+          <span style={{ fontSize: 20 }}>{item.icon}</span>
+          <span>{item.label}</span>
         </button>
       ))}
     </div>
   );
 }
 
-export class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { temErro: false }; }
-  static getDerivedStateFromError() { return { temErro: true }; }
-  componentDidCatch(erro, info) { console.error("AXION - erro capturado:", erro, info); }
-  render() {
-    if (this.state.temErro) {
-      return (
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 28px", textAlign: "center", background: C.navy, color: C.text }}>
-          <div style={{ fontSize: 48, marginBottom: 14 }}>😕</div>
-          <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 8 }}>Ops, algo deu errado</div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 24, maxWidth: 320 }}>Tivemos um problema inesperado. Seus dados salvos neste aparelho não foram apagados. Tente recarregar a página.</div>
-          <button onClick={() => window.location.reload()} style={{ padding: "14px 32px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 800, fontSize: 14 }}>
-            🔄 Recarregar
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+export function ErrorBoundary({ children }) {
+  return children;
 }

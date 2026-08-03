@@ -5,7 +5,8 @@ import { PatientService, supabase } from '../services/supabaseClient';
 export function SuperAdmin({ onBack, onSair }) {
   const [tab, setTab] = useState("metricas"); // metricas | clinicas | usuarios
   const [clinicas, setClinicas] = useState([]);
-  const [totalPacientesReal, setTotalPacientesReal] = useState(0);
+  const [pacientesPorHospital, setPacientesPorHospital] = useState({});
+  const [totalPacientesCobravel, setTotalPacientesCobravel] = useState(0);
   
   const [novaClinica, setNovaClinica] = useState({ 
     nome: "", 
@@ -21,16 +22,47 @@ export function SuperAdmin({ onBack, onSair }) {
   const [salvando, setSalvando] = useState(false);
 
   const carregarDadosSaaS = async () => {
+    let listaClinicas = [];
+
     try {
       if (supabase) {
         const { data } = await supabase.from('hospitais_clinicas').select('*');
-        if (data) setClinicas(data);
+        if (data) listaClinicas = data;
       }
     } catch (e) {}
 
-    // Contagem 100% REAL de pacientes ativos no sistema (sem números fictícios)
-    const listaPacientes = await PatientService.listarPacientes();
-    setTotalPacientesReal(listaPacientes ? listaPacientes.length : 0);
+    if (listaClinicas.length === 0) {
+      const todosHospitais = JSON.parse(localStorage.getItem('axion_hospitais') || '{}');
+      const unicos = {};
+      Object.values(todosHospitais).forEach(h => {
+        if (h.id) unicos[h.id] = h;
+      });
+      listaClinicas = Object.values(unicos);
+    }
+
+    setClinicas(listaClinicas);
+
+    // Carrega contagem REAL de pacientes e agrupa por Hospital para Faturamento SaaS
+    const todosPacientes = await PatientService.listarPacientes();
+    const contagemPorHosp = {};
+    let somaCobravel = 0;
+
+    // Inicializa zerado para cada clínica existente
+    listaClinicas.forEach(c => {
+      contagemPorHosp[c.nome] = 0;
+    });
+
+    todosPacientes.forEach(p => {
+      const nomeHosp = p.hospital;
+      // Se o paciente pertence a uma clínica cadastrada ativa, computa na fatura
+      if (nomeHosp && contagemPorHosp[nomeHosp] !== undefined) {
+        contagemPorHosp[nomeHosp] += 1;
+        somaCobravel += 1;
+      }
+    });
+
+    setPacientesPorHospital(contagemPorHosp);
+    setTotalPacientesCobravel(somaCobravel);
   };
 
   useEffect(() => {
@@ -76,10 +108,11 @@ export function SuperAdmin({ onBack, onSair }) {
       senhaProvisoria: "HospAdmin@" + Math.floor(1000 + Math.random() * 9000)
     });
     setSalvando(false);
+    carregarDadosSaaS();
   };
 
   const excluirHospital = async (hospitalId, nomeHospital, emailAdmin) => {
-    if (!window.confirm(`Tem certeza que deseja excluir o hospital "${nomeHospital}" e revogar o acesso do administrador?`)) {
+    if (!window.confirm(`Tem certeza que deseja excluir o hospital "${nomeHospital}"? Todos os vínculos e acessos serão revogados.`)) {
       return;
     }
 
@@ -94,7 +127,9 @@ export function SuperAdmin({ onBack, onSair }) {
     if (nomeHospital) delete todosHospitais[nomeHospital.toLowerCase()];
     localStorage.setItem('axion_hospitais', JSON.stringify(todosHospitais));
 
-    setClinicas(prev => prev.filter(c => c.id !== hospitalId && c.nome !== nomeHospital));
+    const novasClinicas = clinicas.filter(c => c.id !== hospitalId && c.nome !== nomeHospital);
+    setClinicas(novasClinicas);
+    carregarDadosSaaS();
   };
 
   const gerarTextoCredenciais = () => {
@@ -134,7 +169,7 @@ export function SuperAdmin({ onBack, onSair }) {
 
         {/* Tab Selector */}
         <div style={{ display: "flex", gap: 6, background: C.navyM, padding: 4, borderRadius: 14 }}>
-          {[["metricas", "📊 Visão Geral"], ["clinicas", "🏥 Clínicas & Hospitais"], ["usuarios", "🔑 Gestão de Acessos"]].map(([k, label]) => (
+          {[["metricas", "📊 Visão Geral"], ["clinicas", `🏥 Clínicas (${clinicas.length})`], ["usuarios", "🔑 Gestão de Acessos"]].map(([k, label]) => (
             <button key={k} onClick={() => { setTab(k); setClinicaCadastrada(null); carregarDadosSaaS(); }} style={{ flex: 1, padding: "10px 4px", borderRadius: 10, border: "none", background: tab === k ? `${C.gold}22` : "transparent", color: tab === k ? C.gold : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.gold}` : "none" }}>
               {label}
             </button>
@@ -143,7 +178,7 @@ export function SuperAdmin({ onBack, onSair }) {
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* TAB 1: VISÃO GERAL DE MÉTRICAS REALISTAS */}
+        {/* TAB 1: VISÃO GERAL DE MÉTRICAS SAAS & DETALHAMENTO DE PACIENTES POR HOSPITAL */}
         {tab === "metricas" && (
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
@@ -152,9 +187,37 @@ export function SuperAdmin({ onBack, onSair }) {
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Hospitais Contratantes</div>
               </div>
               <div style={{ background: `linear-gradient(135deg,${C.teal}18,${C.navyL})`, border: `1.5px solid ${C.teal}44`, borderRadius: 18, padding: "16px", textAlign: "center" }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: C.teal }}>{totalPacientesReal}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Pacientes Ativos na Nuvem</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: C.teal }}>{totalPacientesCobravel}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Pacientes Faturáveis SaaS</div>
               </div>
+            </div>
+
+            {/* DETALHAMENTO DE PACIENTES POR UNIDADE (PARA COBRANÇA DE PLANOS) */}
+            <div style={{ background: C.navyL, border: `1.5px solid ${C.gold}44`, borderRadius: 20, padding: "18px" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: C.gold, marginBottom: 4 }}>💳 Faturamento por Unidade Hospitalar</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 14 }}>Quantidade real de pacientes ativos vinculados a cada hospital para cobrança de licença:</div>
+
+              {clinicas.length === 0 ? (
+                <div style={{ textAlign: "center", color: C.muted, fontSize: 12, padding: "12px 0" }}>
+                  Nenhum hospital cadastrado no momento. Faturamento zerado.
+                </div>
+              ) : (
+                clinicas.map((c, i) => {
+                  const qtdPacientes = pacientesPorHospital[c.nome] || 0;
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.navyM, borderRadius: 12, padding: "12px 14px", marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800 }}>{c.nome}</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>Plano: {c.plano_saas || c.plano}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 15, fontWeight: 900, color: C.teal }}>{qtdPacientes} pacientes</span>
+                        <div style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>Ativos</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -242,25 +305,31 @@ export function SuperAdmin({ onBack, onSair }) {
                 Nenhuma clínica ou hospital cadastrado no momento.
               </div>
             ) : (
-              clinicas.map((c, i) => (
-                <div key={i} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{c.nome}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>CNPJ: {c.cnpj} — {c.cidade}</div>
+              clinicas.map((c, i) => {
+                const qtdPac = pacientesPorHospital[c.nome] || 0;
+                return (
+                  <div key={i} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{c.nome}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>CNPJ: {c.cnpj} — {c.cidade}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, background: `${C.gold}22`, color: C.gold, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>{c.plano_saas || c.plano}</span>
+                        
+                        {/* Botão de Excluir Hospital */}
+                        <button onClick={() => excluirHospital(c.id, c.nome, c.email_admin)} title="Excluir Hospital" style={{ background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 8, padding: "4px 8px", color: C.pink, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          🗑️ Excluir
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <span style={{ fontSize: 11, background: `${C.gold}22`, color: C.gold, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>{c.plano_saas || c.plano}</span>
-                      
-                      {/* Botão de Excluir Hospital */}
-                      <button onClick={() => excluirHospital(c.id, c.nome, c.email_admin)} title="Excluir Hospital" style={{ background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 8, padding: "4px 8px", color: C.pink, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                        🗑️ Excluir
-                      </button>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.navyM}` }}>
+                      <div style={{ fontSize: 11, color: C.teal, fontWeight: 700 }}>🔑 Admin: {c.email_admin || "admin@hospital.com"}</div>
+                      <div style={{ fontSize: 11, color: C.gold, fontWeight: 800 }}>{qtdPac} pacientes ativos</div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, color: C.teal, fontWeight: 700, marginTop: 4 }}>🔑 Admin: {c.email_admin || "admin@hospital.com"}</div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
