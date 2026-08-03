@@ -2,16 +2,27 @@ import React from 'react';
 import { C } from '../constants/theme';
 
 export function Home({ onNav, perfil, onSair }) {
-  const areas = [
-    { id: "paciente", label: "Área Paciente", icon: "🧑", color: C.teal, desc: "Seu tratamento" },
-    { id: "feminina", label: "Área Feminina", icon: "🌸", color: C.pink, desc: "Mama & acolhimento" },
-    { id: "masculina", label: "Área Masculina", icon: "💙", color: C.blue, desc: "Próstata & bem-estar" },
-    { id: "kids", label: "Área Kids", icon: "⭐", color: C.gold, desc: "Heróis do Raio do Bem" },
-    { id: "profissional", label: "Área Profissional", icon: "🏥", color: C.purple, desc: "Painel clínico" },
-    { id: "direitos", label: "Meus Direitos", icon: "⚖️", color: C.green, desc: "Direitos do paciente" },
-    { id: "jogos", label: "Jogos & Diversão", icon: "🎮", color: C.gold, desc: "Para esperar brincando" },
-    { id: "ia", label: "Assistente IA", icon: "🤖", color: C.teal, desc: "Tire dúvidas com IA" },
+  const sexo = (perfil?.sexo || "").toLowerCase();
+
+  // Filtro inteligente de áreas conforme o sexo e tipo de perfil
+  const todasAreas = [
+    { id: "paciente", label: "Área Paciente", icon: "🧑", color: C.teal, desc: "Seu tratamento & sintomas", publico: "todos" },
+    { id: "feminina", label: "Área Feminina", icon: "🌸", color: C.pink, desc: "Mama & acolhimento", publico: "feminino" },
+    { id: "masculina", label: "Área Masculina", icon: "💙", color: C.blue, desc: "Próstata & bem-estar", publico: "masculino" },
+    { id: "kids", label: "Área Kids", icon: "⭐", color: C.gold, desc: "Heróis do Raio do Bem", publico: "todos" },
+    { id: "direitos", label: "Meus Direitos", icon: "⚖️", color: C.green, desc: "Direitos do paciente", publico: "todos" },
+    { id: "jogos", label: "Jogos & Diversão", icon: "🎮", color: C.gold, desc: "Para esperar brincando", publico: "todos" },
+    { id: "ia", label: "Assistente IA", icon: "🤖", color: C.teal, desc: "Tire dúvidas com IA", publico: "todos" },
   ];
+
+  // Filtra as áreas permitidas para o paciente logado
+  const areasFiltradas = todasAreas.filter(a => {
+    if (a.publico === "todos") return true;
+    if (a.publico === "feminino") return sexo.includes("fem") || sexo.includes("mulher") || !sexo;
+    if (a.publico === "masculino") return sexo.includes("masc") || sexo.includes("homem") || !sexo;
+    return true;
+  });
+
   const primeiroNome = perfil && perfil.nome ? perfil.nome.split(" ")[0] : "";
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? "BOM DIA ☀️" : hora < 18 ? "BOA TARDE 🌤️" : "BOA NOITE 🌙";
@@ -49,7 +60,7 @@ export function Home({ onNav, perfil, onSair }) {
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>O AXION apoia cada etapa do seu tratamento com cuidado, informação e gamificação!</div>
       </div>
 
-      {/* Account Info & Manage / Logout */}
+      {/* Account Info */}
       {perfil && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.navyM}`, borderRadius: 14, padding: "10px 14px", marginBottom: 26 }}>
           <div style={{ fontSize: 11, color: C.muted }}>Código: <strong style={{ color: C.teal, letterSpacing: 1 }}>{perfil.codigo}</strong></div>
@@ -61,7 +72,7 @@ export function Home({ onNav, perfil, onSair }) {
 
       <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, fontWeight: 700, marginBottom: 14 }}>SELECIONE SUA ÁREA</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        {areas.map((a, i) => (
+        {areasFiltradas.map((a, i) => (
           <button key={a.id} onClick={() => onNav(a.id)} style={{
             background: `${a.color}12`, border: `2px solid ${a.color}44`,
             borderRadius: 20, padding: "18px 14px", textAlign: "left",
