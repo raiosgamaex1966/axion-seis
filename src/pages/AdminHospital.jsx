@@ -12,7 +12,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
   // Profissionais da Unidade (Inicia Vazio para nao misturar dados ficticios)
   const [equipe, setEquipe] = useState([]);
 
-  // Pacientes da Unidade
+  // Pacientes da Unidade (Inicia Vazio para nao misturar dados ficticios)
   const [pacientesUnidade, setPacientesUnidade] = useState([]);
 
   // Form Profissional
@@ -54,8 +54,14 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
   const carregarPacientesUnidade = async () => {
     const todos = await PatientService.listarPacientes();
-    // Filtra pacientes pertencentes a esta unidade hospitalar específica
-    const filtrados = todos.filter(p => p.hospital === nomeHospital || !p.hospital || p.hospital_id === hospital?.id);
+    
+    // Filtro ESTRITO: Exibe APENAS pacientes cadastrados estritamente para esta unidade hospitalar
+    const filtrados = todos.filter(p => {
+      if (hospital?.id && p.hospital_id && String(p.hospital_id) === String(hospital.id)) return true;
+      if (p.hospital && nomeHospital && p.hospital.toLowerCase().trim() === nomeHospital.toLowerCase().trim()) return true;
+      return false;
+    });
+
     setPacientesUnidade(filtrados);
   };
 
@@ -244,7 +250,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                       <div style={{ fontSize: 12, color: C.teal, fontWeight: 800 }}>Código: {p.codigo}</div>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => copiarCodigoPaciente(p.codigo)} title="Copiar Código" style={{ background: `${C.teal}22`, border: `1px solid ${C.teal}`, borderRadius: 8, padding: "6px 10px", color: C.teal, fontSize: 11, fontWeight: 800 }}>
+                      <button onClick={() => copiarCodigoPaciente(p.codigo)} title="Copiar Código" style={{ background: `${C.teal}22`, border: `1.5px solid ${C.teal}`, borderRadius: 8, padding: "6px 10px", color: C.teal, fontSize: 11, fontWeight: 800 }}>
                         📋 Copiar
                       </button>
                       <button onClick={() => abrirWhatsAppWebPaciente(p)} title="Enviar WhatsApp" style={{ background: "#25D366", border: "none", borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, fontWeight: 800 }}>
