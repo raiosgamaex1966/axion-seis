@@ -114,7 +114,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR (Pode entrar por Nome do Hospital ou E-mail Admin)
+    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR
     if (perfilAcesso === "admin_hospital") {
       const termo = credenciais.email.toLowerCase().trim();
       let hospEncontrado = null;
@@ -136,19 +136,20 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
         if (todosHospitais[termo]) hospEncontrado = todosHospitais[termo];
       }
 
-      // Primeiro acesso com senha provisória do Admin do Hospital
+      const hospObjeto = hospEncontrado || { id: Date.now().toString(), nome: credenciais.email.trim(), email_admin: credenciais.email.trim() };
+
       if (hospEncontrado && (hospEncontrado.primeiro_acesso || hospEncontrado.primeiroAcesso)) {
-        setHospitalPrimeiroAcesso(hospEncontrado);
+        setHospitalPrimeiroAcesso(hospObjeto);
         setModo("trocar_senha_admin");
         setErroLogin("");
         return;
       }
 
-      onEntrarAdminHospital();
+      onEntrarAdminHospital(hospObjeto);
       return;
     }
 
-    // LOGIN DOS PROFISSIONAIS DA SAÚDE (Médicos, Enfermeiros, Técnicos)
+    // LOGIN DOS PROFISSIONAIS DA SAÚDE
     const emailLimpo = credenciais.email.toLowerCase().trim();
     let profEncontrado = null;
 
@@ -193,7 +194,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
           }).eq('id', hospitalPrimeiroAcesso.id);
         } catch (e) {}
       }
-      onEntrarAdminHospital();
+      onEntrarAdminHospital(hospitalPrimeiroAcesso);
       return;
     }
 
@@ -392,7 +393,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>NOME DA UNIDADE OU E-MAIL DO ADMIN *</label>
-                <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="Ex: Hospital Brasília ou admin@hospital.com" style={inputStyle} />
+                <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="Ex: Hospital Doutor Luiz Sampa" style={inputStyle} />
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={labelStyle}>SENHA DE ACESSO *</label>
@@ -485,7 +486,7 @@ function TelaCodigoGerado({ perfil, onContinuar }) {
           {copiado ? "✓ Código Copiado para a Área de Transferência!" : "📋 Copiar Código de Acesso"}
         </button>
 
-        <button onClick={onContinuar} style={{ width: "100%", padding: "15px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 800, fontSize: 15 }}>
+        <button onClick={onContinuar} style={{ width: "100%", padding: "15px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 15 }}>
           Entrar no AXION →
         </button>
       </div>

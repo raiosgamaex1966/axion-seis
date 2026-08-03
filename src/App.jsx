@@ -18,6 +18,7 @@ export function App() {
   const [splash, setSplash] = useState(true);
   const [page, setPage] = useState("home");
   const [perfil, setPerfil] = useState(null);
+  const [hospitalAtivo, setHospitalAtivo] = useState(null);
   const [role, setRole] = useState(null); // 'paciente' | 'medico' | 'admin_hospital' | 'superadmin'
   const [pronto, setPronto] = useState(false);
 
@@ -25,6 +26,9 @@ export function App() {
     try {
       const sessaoRole = localStorage.getItem("axion_role_ativa");
       const codigoSessao = localStorage.getItem("axion_sessao_ativa");
+      const savedHospital = localStorage.getItem("axion_hospital_ativo");
+
+      if (savedHospital) setHospitalAtivo(JSON.parse(savedHospital));
 
       if (sessaoRole === "superadmin") {
         setRole("superadmin");
@@ -65,10 +69,12 @@ export function App() {
     setPage("profissional");
   };
 
-  const entrarAdminHospital = () => {
+  const entrarAdminHospital = (hospitalData) => {
+    setHospitalAtivo(hospitalData);
     setRole("admin_hospital");
     try {
       localStorage.setItem("axion_role_ativa", "admin_hospital");
+      if (hospitalData) localStorage.setItem("axion_hospital_ativo", JSON.stringify(hospitalData));
     } catch (e) {}
     setPage("admin_hospital");
   };
@@ -85,8 +91,10 @@ export function App() {
     try {
       localStorage.removeItem("axion_sessao_ativa");
       localStorage.removeItem("axion_role_ativa");
+      localStorage.removeItem("axion_hospital_ativo");
     } catch (e) {}
     setPerfil(null);
+    setHospitalAtivo(null);
     setRole(null);
     setPage("home");
   };
@@ -101,7 +109,7 @@ export function App() {
     direitos: <Direitos onBack={() => setPage("home")} />,
     jogos: <Jogos onBack={() => setPage("home")} />,
     ia: <AssistenteIA onBack={() => setPage("home")} />,
-    admin_hospital: <AdminHospital onBack={() => setPage("home")} onSair={sair} />,
+    admin_hospital: <AdminHospital onBack={() => setPage("home")} onSair={sair} hospital={hospitalAtivo} />,
     superadmin: <SuperAdmin onBack={() => setPage("home")} onSair={sair} />,
   };
 

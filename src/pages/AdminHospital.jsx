@@ -4,15 +4,13 @@ import { AreaHeader } from '../components/ui/NavigationControls';
 import { gerarCodigo } from '../utils/codeGenerator';
 import { PatientService, supabase } from '../services/supabaseClient';
 
-export function AdminHospital({ onBack, onSair }) {
-  const [tab, setTab] = useState("equipe"); // equipe | cadastrar_prof | cadastrar_paciente | lista_pacientes
+export function AdminHospital({ onBack, onSair, hospital }) {
+  const [tab, setTab] = useState("equipe"); // equipe | lista_pacientes | cadastrar_prof | cadastrar_paciente
 
-  // Profissionais da Unidade
-  const [equipe, setEquipe] = useState([
-    { id: 1, nome: "Dr. Roberto Oncologia", email: "roberto@hospital.com", registro: "CRM 12345/SP", cargo: "medico", especialidade: "Oncologia Radioterápica", senhaProvisoria: "Axion@2026" },
-    { id: 2, nome: "Enfª. Juliana Costa", email: "juliana@hospital.com", registro: "COREN 98765/SP", cargo: "enfermeiro", especialidade: "Cuidados Cutâneos & Triagem", senhaProvisoria: "Axion@2026" },
-    { id: 3, nome: "Téc. Marcos Radiologia", email: "marcos@hospital.com", registro: "CRTR 45678/SP", cargo: "tecnico", especialidade: "Operação de Acelerador Linear", senhaProvisoria: "Axion@2026" },
-  ]);
+  const nomeHospital = hospital?.nome || hospital?.email_admin || "Sua Unidade Hospitalar";
+
+  // Profissionais da Unidade (Inicia Vazio para nao misturar dados ficticios)
+  const [equipe, setEquipe] = useState([]);
 
   // Pacientes da Unidade
   const [pacientesUnidade, setPacientesUnidade] = useState([]);
@@ -23,25 +21,52 @@ export function AdminHospital({ onBack, onSair }) {
   const [copiadoProf, setCopiadoProf] = useState(false);
 
   // Form Paciente
-  const [novoPac, setNovoPac] = useState({ nome: "", idade: "", sexo: "Masculino", tipo: "Próstata", medico: "Dr. Roberto Oncologia", totalSessoes: 30 });
+  const [novoPac, setNovoPac] = useState({ nome: "", idade: "", sexo: "Masculino", tipo: "Próstata", medico: "Dr. Oncologista", totalSessoes: 30 });
   const [pacienteGerado, setPacienteGerado] = useState(null);
   const [copiado, setCopiado] = useState(false);
 
-  const carregarPacientesUnidade = async () => {
-    const lista = await PatientService.listarPacientes();
-    if (lista) setPacientesUnidade(lista);
+  useEffect(() => {
+    carregarEquipeUnidade();
+    carregarPacientesUnidade();
+  }, [hospital]);
+
+  const carregarEquipeUnidade = async () => {
+    let lista = [];
+
+    if (supabase && hospital?.id) {
+      try {
+        const { data } = await supabase
+          .from('profissionais')
+          .select('*')
+          .eq('hospital_id', hospital.id);
+
+        if (data && data.length > 0) lista = data;
+      } catch (e) {}
+    }
+
+    if (lista.length === 0) {
+      const todosProfs = JSON.parse(localStorage.getItem(`axion_profissionais_${hospital?.id || nomeHospital}`) || '[]');
+      lista = todosProfs;
+    }
+
+    setEquipe(lista);
   };
 
-  useEffect(() => {
-    carregarPacientesUnidade();
-  }, []);
+  const carregarPacientesUnidade = async () => {
+    const todos = await PatientService.listarPacientes();
+    // Filtra pacientes pertencentes a esta unidade hospitalar específica
+    const filtrados = todos.filter(p => p.hospital === nomeHospital || !p.hospital || p.hospital_id === hospital?.id);
+    setPacientesUnidade(filtrados);
+  };
 
   const cadastrarProfissional = async () => {
     if (!novoProf.nome || !novoProf.email) return;
 
     const prof = {
-      id: Date.now(),
-      nome: novoProf.nome,
+      id: Date.now().toString(),
+      hospital_id: hospital?.id || null,
+      hospital_nome: nomeHospital,
+      nome: novoProf.nome.trim(),
       email: novoProf.email.toLowerCase().trim(),
       registro_profissional: novoProf.registro,
       cargo: novoProf.cargo,
@@ -57,9 +82,10 @@ export function AdminHospital({ onBack, onSair }) {
       } catch (e) {}
     }
 
-    const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
-    todosProfs[prof.email] = prof;
-    localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
+    const key = `axion_profissionais_${hospital?.id || nomeHospital}`;
+    const existentes = JSON.parse(localStorage.getItem(key) || '[]');
+    existentes.unshift(prof);
+    localStorage.setItem(key, JSON.stringify(existentes));
 
     setEquipe(prev => [prof, ...prev]);
     setProfCadastrado(prof);
@@ -68,7 +94,7 @@ export function AdminHospital({ onBack, onSair }) {
 
   const gerarTextoCredenciaisProf = () => {
     if (!profCadastrado) return "";
-    return `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\n⚠️ *Segurança:* No seu primeiro acesso, o sistema exigirá o cadastramento da sua nova senha pessoal.`;
+    return `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()} na unidade ${nomeHospital}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\n⚠️ *Segurança:* No seu primeiro acesso, o sistema exigirá o cadastramento da sua nova senha pessoal.`;
   };
 
   const copiarCredenciaisProf = () => {
@@ -89,6 +115,8 @@ export function AdminHospital({ onBack, onSair }) {
     const codigo = gerarCodigo();
     const pac = {
       codigo,
+      hospital_id: hospital?.id || null,
+      hospital: nomeHospital,
       nome: novoPac.nome,
       idade: parseInt(novoPac.idade) || 50,
       sexo: novoPac.sexo,
@@ -96,7 +124,6 @@ export function AdminHospital({ onBack, onSair }) {
       tipo_tratamento: novoPac.tipo,
       medico: novoPac.medico,
       medico_responsavel: novoPac.medico,
-      hospital: "Hospital de Câncer AXION",
       totalSessoes: parseInt(novoPac.totalSessoes) || 30,
       total_sessoes: parseInt(novoPac.totalSessoes) || 30,
       sessaoAtual: 0,
@@ -120,7 +147,7 @@ export function AdminHospital({ onBack, onSair }) {
   const abrirWhatsAppWebPaciente = (pac) => {
     const p = pac || pacienteGerado;
     if (!p) return;
-    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${p.nome},\nSeu cadastro no AXION foi realizado.\n\n• *Seu Código Único:* ${p.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
+    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${p.nome},\nSeu cadastro no AXION foi realizado na unidade ${nomeHospital}.\n\n• *Seu Código Único:* ${p.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
   };
@@ -130,16 +157,18 @@ export function AdminHospital({ onBack, onSair }) {
 
   return (
     <div style={{ paddingBottom: 100 }}>
-      {/* Header Admin da Unidade */}
+      {/* Header Admin com Nome Exato da Unidade Hospitalar */}
       <div style={{ background: `linear-gradient(135deg,${C.navyL},${C.navyM})`, padding: "48px 20px 20px", borderBottom: `2px solid ${C.purple}44` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
           <button onClick={onBack} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 12, width: 40, height: 40, color: C.text, fontSize: 18, flexShrink: 0 }}>←</button>
-          <div>
-            <div style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 2 }}>ADMIN DA UNIDADE HOSPITALAR</div>
-            <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", color: C.purple }}>Gestão de Saúde 🏢</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>ADMIN DA UNIDADE</div>
+            <div style={{ fontSize: 18, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", color: C.purple, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {nomeHospital} 🏥
+            </div>
           </div>
           {onSair && (
-            <button onClick={onSair} title="Sair do painel" style={{ marginLeft: "auto", background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 12, padding: "8px 14px", color: C.pink, fontSize: 11, fontWeight: 800 }}>
+            <button onClick={onSair} title="Sair do painel" style={{ marginLeft: "auto", background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 12, padding: "8px 14px", color: C.pink, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
               Sair 🚪
             </button>
           )}
@@ -148,12 +177,12 @@ export function AdminHospital({ onBack, onSair }) {
         {/* Tab Selector */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: C.navyM, padding: 4, borderRadius: 14 }}>
           {[
-            ["equipe", "👥 Equipe"],
+            ["equipe", `👥 Equipe (${equipe.length})`],
             ["lista_pacientes", `📋 Pacientes (${pacientesUnidade.length})`],
             ["cadastrar_prof", "＋ Profissional"],
             ["cadastrar_paciente", "＋ Admitir Paciente"]
           ].map(([k, label]) => (
-            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); carregarPacientesUnidade(); }} style={{ padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
+            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); carregarPacientesUnidade(); carregarEquipeUnidade(); }} style={{ padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
               {label}
             </button>
           ))}
@@ -164,30 +193,47 @@ export function AdminHospital({ onBack, onSair }) {
         {/* TAB 1: EQUIPE DA UNIDADE */}
         {tab === "equipe" && (
           <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PROFISSIONAIS CADASTRADOS NA UNIDADE ({equipe.length})</div>
-            {equipe.map((p, i) => (
-              <div key={i} style={{ background: C.navyL, border: `1.5px solid ${cargoBadge[p.cargo] || C.navyM}44`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
-                  <span style={{ fontSize: 10, background: `${cargoBadge[p.cargo] || C.purple}22`, color: cargoBadge[p.cargo] || C.purple, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>
-                    {cargoLabel[p.cargo] || p.cargo}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Registro: {p.registro || p.registro_profissional || "CRM/COREN"} — {p.email}</div>
-                <div style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>🔑 Senha Provisória: {p.senha_provisoria || p.senhaProvisoria || "Axion@2026"} (Troca no 1º Acesso)</div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PROFISSIONAIS CADASTRADOS EM {nomeHospital.toUpperCase()} ({equipe.length})</div>
+            
+            {equipe.length === 0 ? (
+              <div style={{ background: C.navyL, borderRadius: 16, padding: "24px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>👨‍⚕️</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Nenhum profissional cadastrado ainda</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Clique no botão "＋ Profissional" acima para cadastrar médicos, enfermeiros e técnicos desta unidade.</div>
+                <button onClick={() => setTab("cadastrar_prof")} style={{ background: C.purple, border: "none", borderRadius: 12, padding: "10px 20px", color: C.navy, fontWeight: 900, fontSize: 12 }}>
+                  ＋ Cadastrar Primeiro Profissional
+                </button>
               </div>
-            ))}
+            ) : (
+              equipe.map((p, i) => (
+                <div key={i} style={{ background: C.navyL, border: `1.5px solid ${cargoBadge[p.cargo] || C.navyM}44`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
+                    <span style={{ fontSize: 10, background: `${cargoBadge[p.cargo] || C.purple}22`, color: cargoBadge[p.cargo] || C.purple, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>
+                      {cargoLabel[p.cargo] || p.cargo}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Registro: {p.registro || p.registro_profissional || "CRM/COREN"} — {p.email}</div>
+                  {p.senha_provisoria && <div style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>🔑 Senha Provisória: {p.senha_provisoria} (Troca no 1º Acesso)</div>}
+                </div>
+              ))
+            )}
           </div>
         )}
 
         {/* TAB LISTA DE PACIENTES DA UNIDADE */}
         {tab === "lista_pacientes" && (
           <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PACIENTES ADMITIDOS NA UNIDADE ({pacientesUnidade.length})</div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PACIENTES ADMITIDOS EM {nomeHospital.toUpperCase()} ({pacientesUnidade.length})</div>
             
             {pacientesUnidade.length === 0 ? (
-              <div style={{ background: C.navyL, borderRadius: 16, padding: "20px", textAlign: "center", color: C.muted, fontSize: 13 }}>
-                Nenhum paciente cadastrado ainda nesta unidade.
+              <div style={{ background: C.navyL, borderRadius: 16, padding: "24px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎟️</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Nenhum paciente admitido nesta unidade ainda</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Clique em "＋ Admitir Paciente" para emitir o primeiro cartão de acesso.</div>
+                <button onClick={() => setTab("cadastrar_paciente")} style={{ background: C.teal, border: "none", borderRadius: 12, padding: "10px 20px", color: C.navy, fontWeight: 900, fontSize: 12 }}>
+                  🎟️ Admitir Primeiro Paciente
+                </button>
               </div>
             ) : (
               pacientesUnidade.map((p, i) => (
@@ -220,7 +266,7 @@ export function AdminHospital({ onBack, onSair }) {
           <div>
             {!profCadastrado ? (
               <div style={{ background: C.navyL, border: `1.5px solid ${C.purple}44`, borderRadius: 20, padding: "20px" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.purple, marginBottom: 12 }}>➕ Cadastrar Novo Profissional na Unidade</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.purple, marginBottom: 12 }}>➕ Cadastrar Profissional em {nomeHospital}</div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>CARGO DO PROFISSIONAL *</label>
@@ -263,6 +309,7 @@ export function AdminHospital({ onBack, onSair }) {
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso abaixo para o profissional:</div>
 
                 <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${C.purple}44`, borderRadius: 16, padding: "16px", textAlign: "left", marginBottom: 16, fontSize: 12, lineHeight: 1.7 }}>
+                  <div><strong>Unidade:</strong> {nomeHospital}</div>
                   <div><strong>Cargo:</strong> {profCadastrado.cargo.toUpperCase()}</div>
                   <div><strong>E-mail:</strong> {profCadastrado.email}</div>
                   <div><strong>Senha Provisória:</strong> <span style={{ color: C.gold, fontWeight: 800 }}>{profCadastrado.senha_provisoria}</span></div>
@@ -290,7 +337,7 @@ export function AdminHospital({ onBack, onSair }) {
           <div>
             {!pacienteGerado ? (
               <div style={{ background: C.navyL, border: `1.5px solid ${C.teal}44`, borderRadius: 20, padding: "20px" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.teal, marginBottom: 12 }}>🎟️ Admitir Paciente & Gerar Código de Acesso</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.teal, marginBottom: 12 }}>🎟️ Admitir Paciente em {nomeHospital}</div>
                 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO DO PACIENTE *</label>
