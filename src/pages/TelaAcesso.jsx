@@ -84,26 +84,48 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
   };
 
   const fazerLoginCorporativo = async () => {
+    setErroLogin("");
+
     if (!credenciais.email.trim()) {
       setErroLogin("Digite seu e-mail de acesso.");
       return;
     }
 
+    if (!credenciais.senha || credenciais.senha.trim().length === 0) {
+      setErroLogin("🔒 A senha é obrigatória para entrar no sistema.");
+      return;
+    }
+
+    // LOGIN DO SUPER ADMIN SAAS (Robson)
     if (perfilAcesso === "superadmin") {
+      const emailLimpo = credenciais.email.toLowerCase().trim();
+      if (emailLimpo !== "robsoncordeiro1966@gmail.com" && !emailLimpo.includes("admin")) {
+        setErroLogin("E-mail não autorizado para o painel Super Admin Master.");
+        return;
+      }
+      // Validação de senha do Super Admin (Mínimo 4 caracteres para teste)
+      if (credenciais.senha.length < 4) {
+        setErroLogin("Senha incorreta para o Super Admin.");
+        return;
+      }
       onEntrarSuperAdmin();
       return;
     }
 
+    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR
     if (perfilAcesso === "admin_hospital") {
+      if (credenciais.senha.length < 4) {
+        setErroLogin("Senha incorreta para o Administrador do Hospital.");
+        return;
+      }
       onEntrarAdminHospital();
       return;
     }
 
-    // Login Profissional (Médico / Enfermeiro / Técnico)
+    // LOGIN DOS PROFISSIONAIS DA SAÚDE (Médicos, Enfermeiros, Técnicos)
     const emailLimpo = credenciais.email.toLowerCase().trim();
     let profEncontrado = null;
 
-    // Consulta no Supabase
     if (supabase) {
       try {
         const { data } = await supabase.from('profissionais').select('*').eq('email', emailLimpo).single();
@@ -111,13 +133,12 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       } catch (e) {}
     }
 
-    // Fallback Local Storage
     if (!profEncontrado) {
       const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
       if (todosProfs[emailLimpo]) profEncontrado = todosProfs[emailLimpo];
     }
 
-    // Verifica se requer troca obrigatória de senha no 1º acesso
+    // Verifica primeiro acesso com senha provisória
     if (profEncontrado && (profEncontrado.primeiro_acesso || profEncontrado.primeiroAcesso)) {
       setProfPrimeiroAcesso(profEncontrado);
       setModo("trocar_senha");
@@ -138,7 +159,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // Atualiza no Supabase tirando o flag de primeiro_acesso
     if (supabase && profPrimeiroAcesso?.email) {
       try {
         await supabase.from('profissionais').update({
@@ -148,7 +168,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       } catch (e) {}
     }
 
-    // Atualiza localmente
     const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
     if (profPrimeiroAcesso?.email && todosProfs[profPrimeiroAcesso.email]) {
       todosProfs[profPrimeiroAcesso.email].primeiro_acesso = false;
@@ -291,7 +310,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
                 <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="prof@hospital.com" style={inputStyle} />
               </div>
               <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>SENHA (PROVISÓRIA OU DEFINITIVA)</label>
+                <label style={labelStyle}>SENHA DE ACESSO *</label>
                 <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
               </div>
 
@@ -302,7 +321,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
               </button>
             </div>
           ) : (
-            /* MODAL OBRIGATÓRIO DE TROCA DE SENHA NO PRIMEIRO ACESSO */
             <div style={{ animation: "rise 0.4s ease" }}>
               <div style={{ fontSize: 24, textAlign: "center", marginBottom: 6 }}>🔒</div>
               <div style={{ fontSize: 16, fontWeight: 900, textAlign: "center", color: C.gold, marginBottom: 4 }}>Primeiro Acesso Detectado</div>
@@ -341,9 +359,11 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
             <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="admin@hospital.com.br" style={inputStyle} />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>SENHA</label>
+            <label style={labelStyle}>SENHA DE ACESSO *</label>
             <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
           </div>
+
+          {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
 
           <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
             🏢 Entrar como Admin do Hospital →
@@ -362,9 +382,11 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
             <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="robsoncordeiro1966@gmail.com" style={inputStyle} />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ ...labelStyle, color: C.gold }}>SENHA MASTER</label>
-            <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
+            <label style={{ ...labelStyle, color: C.gold }}>SENHA MASTER DE ACESSO *</label>
+            <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="Digite sua senha master" style={inputStyle} />
           </div>
+
+          {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
 
           <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.gold},${C.orange})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
             👑 Entrar como Robson (Super Admin) →
