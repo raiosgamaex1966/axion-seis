@@ -22,6 +22,11 @@ export function App() {
   const [role, setRole] = useState(null); // 'paciente' | 'medico' | 'admin_hospital' | 'superadmin'
   const [pronto, setPronto] = useState(false);
 
+  // Verifica se o usuário está acessando a URL secreta /superadmin
+  const isSuperAdminRoute = window.location.pathname.includes("superadmin") || 
+                            window.location.hash.includes("superadmin") || 
+                            window.location.search.includes("superadmin");
+
   useEffect(() => {
     try {
       const sessaoRole = localStorage.getItem("axion_role_ativa");
@@ -127,6 +132,7 @@ export function App() {
             onEntrarMedico={entrarMedico}
             onEntrarAdminHospital={entrarAdminHospital}
             onEntrarSuperAdmin={entrarSuperAdmin}
+            isSuperAdminRoute={isSuperAdminRoute}
           />
         )}
 

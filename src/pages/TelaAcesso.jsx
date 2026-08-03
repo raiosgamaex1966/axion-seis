@@ -3,8 +3,8 @@ import { C } from '../constants/theme';
 import { gerarCodigo } from '../utils/codeGenerator';
 import { PatientService, supabase } from '../services/supabaseClient';
 
-export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital, onEntrarMedico }) {
-  const [perfilAcesso, setPerfilAcesso] = useState("paciente"); // paciente | medico | admin_hospital | superadmin
+export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital, onEntrarMedico, isSuperAdminRoute = false }) {
+  const [perfilAcesso, setPerfilAcesso] = useState(isSuperAdminRoute ? "superadmin" : "paciente"); // paciente | medico | admin_hospital | superadmin
   const [modo, setModo] = useState("inicio"); // inicio | cadastro | login | recuperar | trocar_senha | trocar_senha_admin
   
   // Form Paciente
@@ -20,7 +20,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
   const [erroRecuperacao, setErroRecuperacao] = useState("");
 
   // Form Profissional / Admin
-  const [credenciais, setCredenciais] = useState({ email: "", senha: "" });
+  const [credenciais, setCredenciais] = useState({ email: isSuperAdminRoute ? "robsoncordeiro1966@gmail.com" : "", senha: "" });
   const [mostrarSenha, setMostrarSenha] = useState(false);
   
   // Form Troca de Senha Obrigatória (Primeiro Acesso)
@@ -105,7 +105,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     const termo = credenciais.email.toLowerCase().trim();
 
     // 1. LOGIN DO SUPER ADMIN SAAS (Robson)
-    if (perfilAcesso === "superadmin") {
+    if (perfilAcesso === "superadmin" || isSuperAdminRoute) {
       if (termo !== "robsoncordeiro1966@gmail.com") {
         setErroLogin("❌ E-mail não autorizado para o painel Super Admin Master.");
         return;
@@ -261,10 +261,56 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
   const inputStyle = { width: "100%", background: C.navyM, border: `1.5px solid ${C.navyM}`, borderRadius: 12, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", fontFamily: "'Nunito',sans-serif" };
   const labelStyle = { fontSize: 11, color: C.muted, fontWeight: 700, marginBottom: 5, display: "block", letterSpacing: 1 };
 
+  // Se for a Rota /superadmin, exibe a tela de login exclusiva do Super Admin
+  if (isSuperAdminRoute) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 20px" }}>
+        <div style={{ textAlign: "center", marginBottom: 20, animation: "rise 0.5s ease both" }}>
+          <div style={{ animation: "pulse 2s ease infinite", filter: "drop-shadow(0 0 24px rgba(255,215,0,0.5))", marginBottom: 10 }}>
+            <svg width="64" height="64" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="8" fill={C.gold} />
+              <ellipse cx="40" cy="40" rx="35" ry="14" stroke={C.gold} strokeWidth="2" fill="none" opacity="0.9" />
+              <ellipse cx="40" cy="40" rx="35" ry="14" stroke={C.blue} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(60 40 40)" />
+              <ellipse cx="40" cy="40" rx="35" ry="14" stroke={C.purple} strokeWidth="1.5" fill="none" opacity="0.6" transform="rotate(120 40 40)" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", letterSpacing: 3, background: `linear-gradient(135deg,${C.gold},${C.orange})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AXION</div>
+          <div style={{ fontSize: 10, color: C.gold, letterSpacing: 2, marginTop: 2, fontWeight: 800 }}>PAINEL MASTER DE ADMINISTRADOR</div>
+        </div>
+
+        <div style={{ background: C.navyL, border: `1.5px solid ${C.gold}66`, borderRadius: 24, padding: "24px 20px", width: "100%", maxWidth: 380, animation: "rise 0.4s ease both" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, textAlign: "center", marginBottom: 4, color: C.gold }}>Super Admin Master SaaS 👑</div>
+          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 18 }}>Acesso Restrito ao Gestor Global</div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ ...labelStyle, color: C.gold }}>E-MAIL MASTER DE ADMINISTRADOR *</label>
+            <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="robsoncordeiro1966@gmail.com" style={inputStyle} />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ ...labelStyle, color: C.gold }}>SENHA MASTER DE ACESSO *</label>
+            <div style={{ position: "relative" }}>
+              <input type={mostrarSenha ? "text" : "password"} value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="Digite sua senha master" style={{ ...inputStyle, paddingRight: 40 }} />
+              <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
+                {mostrarSenha ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </div>
+
+          {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
+
+          <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.gold},${C.orange})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
+            👑 Entrar como Robson (Super Admin) →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 20px" }}>
-      {/* Logotipo */}
-      <div style={{ textAlign: "center", marginBottom: 20, animation: "rise 0.5s ease both" }}>
+      {/* Logotipo Limpo (Sem a frase 'PLATAFORMA SAAS MULTI-TENANT') */}
+      <div style={{ textAlign: "center", marginBottom: 24, animation: "rise 0.5s ease both" }}>
         <div style={{ animation: "pulse 2s ease infinite", filter: "drop-shadow(0 0 24px rgba(0,201,177,0.5))", marginBottom: 10 }}>
           <svg width="64" height="64" viewBox="0 0 80 80">
             <circle cx="40" cy="40" r="8" fill={C.teal} />
@@ -274,18 +320,17 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
           </svg>
         </div>
         <div style={{ fontSize: 34, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", letterSpacing: 3, background: `linear-gradient(135deg,${C.teal},${C.blue})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AXION</div>
-        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginTop: 2 }}>PLATAFORMA SAAS MULTI-TENANT</div>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginTop: 2 }}>RADIOTERAPIA HUMANIZADA</div>
       </div>
 
-      {/* Seletor de Perfis de Acesso */}
-      <div style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: 3, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, width: "100%", maxWidth: 380, marginBottom: 16 }}>
+      {/* Seletor Público de Perfis (Sem a aba Super Admin) */}
+      <div style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: 3, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, width: "100%", maxWidth: 380, marginBottom: 16 }}>
         {[
           ["paciente", "🧑 Paciente"],
           ["medico", "🏥 Profissional Saúde"],
-          ["admin_hospital", "🏢 Admin Hospital"],
-          ["superadmin", "👑 Super Admin"]
+          ["admin_hospital", "🏢 Admin Hospital"]
         ].map(([p, label]) => (
-          <button key={p} onClick={() => { setPerfilAcesso(p); setModo("inicio"); setErroLogin(""); if (p === "superadmin") setCredenciais({ email: "robsoncordeiro1966@gmail.com", senha: "" }); }} style={{ padding: "8px 2px", borderRadius: 10, border: "none", background: perfilAcesso === p ? (p === "superadmin" ? `${C.gold}22` : p === "admin_hospital" ? `${C.purple}22` : p === "medico" ? `${C.blue}22` : `${C.teal}22`) : "transparent", color: perfilAcesso === p ? (p === "superadmin" ? C.gold : p === "admin_hospital" ? C.purple : p === "medico" ? C.blue : C.teal) : C.muted, fontWeight: perfilAcesso === p ? 900 : 600, fontSize: 11, transition: "all 0.2s" }}>
+          <button key={p} onClick={() => { setPerfilAcesso(p); setModo("inicio"); setErroLogin(""); }} style={{ padding: "10px 2px", borderRadius: 10, border: "none", background: perfilAcesso === p ? (p === "admin_hospital" ? `${C.purple}22` : p === "medico" ? `${C.blue}22` : `${C.teal}22`) : "transparent", color: perfilAcesso === p ? (p === "admin_hospital" ? C.purple : p === "medico" ? C.blue : C.teal) : C.muted, fontWeight: perfilAcesso === p ? 900 : 600, fontSize: 11, transition: "all 0.2s" }}>
             {label}
           </button>
         ))}
@@ -506,36 +551,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {/* SUPER ADMIN SAAS */}
-      {perfilAcesso === "superadmin" && (
-        <div style={{ background: C.navyL, border: `1.5px solid ${C.gold}66`, borderRadius: 24, padding: "24px 20px", width: "100%", maxWidth: 380, animation: "rise 0.4s ease both" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, textAlign: "center", marginBottom: 4, color: C.gold }}>Super Admin Master SaaS 👑</div>
-          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 18 }}>Gestor Global da Plataforma AXION</div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ ...labelStyle, color: C.gold }}>E-MAIL MASTER DE ADMINISTRADOR *</label>
-            <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="robsoncordeiro1966@gmail.com" style={inputStyle} />
-          </div>
-
-          {/* Campo Senha com Olhinho Toggle */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ ...labelStyle, color: C.gold }}>SENHA MASTER DE ACESSO *</label>
-            <div style={{ position: "relative" }}>
-              <input type={mostrarSenha ? "text" : "password"} value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="Digite sua senha master" style={{ ...inputStyle, paddingRight: 40 }} />
-              <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", fontSize: 16, cursor: "pointer", opacity: 0.7 }}>
-                {mostrarSenha ? "🙈" : "👁️"}
-              </button>
-            </div>
-          </div>
-
-          {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
-
-          <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.gold},${C.orange})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
-            👑 Entrar como Robson (Super Admin) →
-          </button>
         </div>
       )}
     </div>
