@@ -99,15 +99,17 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     // LOGIN DO SUPER ADMIN SAAS (Robson)
     if (perfilAcesso === "superadmin") {
       const emailLimpo = credenciais.email.toLowerCase().trim();
-      if (emailLimpo !== "robsoncordeiro1966@gmail.com" && !emailLimpo.includes("admin")) {
-        setErroLogin("E-mail não autorizado para o painel Super Admin Master.");
+      if (emailLimpo !== "robsoncordeiro1966@gmail.com") {
+        setErroLogin("❌ E-mail não autorizado para o painel Super Admin Master.");
         return;
       }
-      // Validação de senha do Super Admin (Mínimo 4 caracteres para teste)
-      if (credenciais.senha.length < 4) {
-        setErroLogin("Senha incorreta para o Super Admin.");
+      
+      // Validação exata da senha master do Robson
+      if (credenciais.senha !== "Binho2020") {
+        setErroLogin("❌ Senha incorreta para o Super Admin Master.");
         return;
       }
+
       onEntrarSuperAdmin();
       return;
     }
@@ -115,7 +117,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     // LOGIN DO ADMIN DA UNIDADE HOSPITALAR
     if (perfilAcesso === "admin_hospital") {
       if (credenciais.senha.length < 4) {
-        setErroLogin("Senha incorreta para o Administrador do Hospital.");
+        setErroLogin("❌ Senha incorreta para o Administrador do Hospital.");
         return;
       }
       onEntrarAdminHospital();
