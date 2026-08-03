@@ -41,7 +41,7 @@ export const PatientService = {
     return { success: false, error: 'Código não encontrado.' };
   },
 
-  // Salvar ou atualizar dados do perfil
+  // Salvar ou atualizar dados do perfil do paciente
   async savePatient(perfil) {
     if (supabaseConfigured) {
       try {
@@ -52,7 +52,7 @@ export const PatientService = {
           sexo: perfil.sexo,
           tipo_tratamento: perfil.tipo || perfil.tipo_tratamento,
           medico_responsavel: perfil.medico || perfil.medico_responsavel,
-          hospital: perfil.hospital,
+          hospital: perfil.hospital || 'Hospital de Câncer AXION',
           total_sessoes: parseInt(perfil.totalSessoes || perfil.total_sessoes) || 30,
           sessao_atual: parseInt(perfil.sessaoAtual || perfil.sessao_atual) || 0,
         });
@@ -61,27 +61,50 @@ export const PatientService = {
       }
     }
 
+    // Salvar no LocalStorage sempre para sincronização hibrida
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
     todos[perfil.codigo] = perfil;
     localStorage.setItem('axion_pacientes', JSON.stringify(todos));
     return perfil;
   },
 
-  // Listar pacientes para o painel profissional
+  // Listar pacientes unificando Supabase + LocalStorage (Sem perder nenhum paciente)
   async listarPacientes() {
+    let mapaPacientes = {};
+
+    // 1. Carrega do LocalStorage primeiro
+    try {
+      const todosLocais = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+      Object.values(todosLocais).forEach(p => {
+        if (p.codigo) mapaPacientes[p.codigo] = p;
+      });
+    } catch (e) {}
+
+    // 2. Mescla com dados da nuvem do Supabase
     if (supabaseConfigured) {
       try {
         const { data, error } = await supabase
           .from('pacientes')
           .select('*')
-          .order('atualizado_em', { ascending: false });
+          .order('criado_em', { ascending: false });
 
-        if (data && !error && data.length > 0) return data;
+        if (data && !error) {
+          data.forEach(p => {
+            mapaPacientes[p.codigo] = {
+              ...mapaPacientes[p.codigo],
+              ...p,
+              nome: p.nome,
+              codigo: p.codigo,
+              tipo: p.tipo_tratamento || p.tipo,
+              sessaoAtual: p.sessao_atual,
+              totalSessoes: p.total_sessoes
+            };
+          });
+        }
       } catch (e) {}
     }
 
-    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    return Object.values(todos);
+    return Object.values(mapaPacientes);
   },
 
   // Registrar diário de sintomas

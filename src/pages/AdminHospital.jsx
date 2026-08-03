@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { C } from '../constants/theme';
 import { AreaHeader } from '../components/ui/NavigationControls';
 import { gerarCodigo } from '../utils/codeGenerator';
 import { PatientService, supabase } from '../services/supabaseClient';
 
 export function AdminHospital({ onBack, onSair }) {
-  const [tab, setTab] = useState("equipe"); // equipe | cadastrar_prof | cadastrar_paciente
+  const [tab, setTab] = useState("equipe"); // equipe | cadastrar_prof | cadastrar_paciente | lista_pacientes
 
   // Profissionais da Unidade
   const [equipe, setEquipe] = useState([
@@ -13,6 +13,9 @@ export function AdminHospital({ onBack, onSair }) {
     { id: 2, nome: "Enfª. Juliana Costa", email: "juliana@hospital.com", registro: "COREN 98765/SP", cargo: "enfermeiro", especialidade: "Cuidados Cutâneos & Triagem", senhaProvisoria: "Axion@2026" },
     { id: 3, nome: "Téc. Marcos Radiologia", email: "marcos@hospital.com", registro: "CRTR 45678/SP", cargo: "tecnico", especialidade: "Operação de Acelerador Linear", senhaProvisoria: "Axion@2026" },
   ]);
+
+  // Pacientes da Unidade
+  const [pacientesUnidade, setPacientesUnidade] = useState([]);
 
   // Form Profissional
   const [novoProf, setNovoProf] = useState({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
@@ -23,6 +26,15 @@ export function AdminHospital({ onBack, onSair }) {
   const [novoPac, setNovoPac] = useState({ nome: "", idade: "", sexo: "Masculino", tipo: "Próstata", medico: "Dr. Roberto Oncologia", totalSessoes: 30 });
   const [pacienteGerado, setPacienteGerado] = useState(null);
   const [copiado, setCopiado] = useState(false);
+
+  const carregarPacientesUnidade = async () => {
+    const lista = await PatientService.listarPacientes();
+    if (lista) setPacientesUnidade(lista);
+  };
+
+  useEffect(() => {
+    carregarPacientesUnidade();
+  }, []);
 
   const cadastrarProfissional = async () => {
     if (!novoProf.nome || !novoProf.email) return;
@@ -81,27 +93,34 @@ export function AdminHospital({ onBack, onSair }) {
       idade: parseInt(novoPac.idade) || 50,
       sexo: novoPac.sexo,
       tipo: novoPac.tipo,
+      tipo_tratamento: novoPac.tipo,
       medico: novoPac.medico,
+      medico_responsavel: novoPac.medico,
       hospital: "Hospital de Câncer AXION",
       totalSessoes: parseInt(novoPac.totalSessoes) || 30,
+      total_sessoes: parseInt(novoPac.totalSessoes) || 30,
       sessaoAtual: 0,
+      sessao_atual: 0,
       role: "paciente"
     };
 
     await PatientService.savePatient(pac);
     setPacienteGerado(pac);
+    carregarPacientesUnidade();
   };
 
-  const copiarCodigoPaciente = () => {
-    if (!pacienteGerado) return;
-    navigator.clipboard.writeText(pacienteGerado.codigo);
+  const copiarCodigoPaciente = (codigo) => {
+    const cod = codigo || pacienteGerado?.codigo;
+    if (!cod) return;
+    navigator.clipboard.writeText(cod);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 3000);
   };
 
-  const abrirWhatsAppWebPaciente = () => {
-    if (!pacienteGerado) return;
-    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${pacienteGerado.nome},\nSeu cadastro no AXION foi realizado.\n\n• *Seu Código Único:* ${pacienteGerado.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
+  const abrirWhatsAppWebPaciente = (pac) => {
+    const p = pac || pacienteGerado;
+    if (!p) return;
+    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${p.nome},\nSeu cadastro no AXION foi realizado.\n\n• *Seu Código Único:* ${p.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
   };
@@ -127,9 +146,14 @@ export function AdminHospital({ onBack, onSair }) {
         </div>
 
         {/* Tab Selector */}
-        <div style={{ display: "flex", gap: 4, background: C.navyM, padding: 4, borderRadius: 14 }}>
-          {[["equipe", "👥 Equipe"], ["cadastrar_prof", "＋ Profissional"], ["cadastrar_paciente", "＋ Paciente"]].map(([k, label]) => (
-            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); }} style={{ flex: 1, padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: C.navyM, padding: 4, borderRadius: 14 }}>
+          {[
+            ["equipe", "👥 Equipe"],
+            ["lista_pacientes", `📋 Pacientes (${pacientesUnidade.length})`],
+            ["cadastrar_prof", "＋ Profissional"],
+            ["cadastrar_paciente", "＋ Admitir Paciente"]
+          ].map(([k, label]) => (
+            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); carregarPacientesUnidade(); }} style={{ padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
               {label}
             </button>
           ))}
@@ -156,7 +180,42 @@ export function AdminHospital({ onBack, onSair }) {
           </div>
         )}
 
-        {/* TAB 2: CADASTRO DE MÉDICOS, ENFERMEIROS E TÉCNICOS COM SENHA PROVISÓRIA */}
+        {/* TAB LISTA DE PACIENTES DA UNIDADE */}
+        {tab === "lista_pacientes" && (
+          <div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PACIENTES ADMITIDOS NA UNIDADE ({pacientesUnidade.length})</div>
+            
+            {pacientesUnidade.length === 0 ? (
+              <div style={{ background: C.navyL, borderRadius: 16, padding: "20px", textAlign: "center", color: C.muted, fontSize: 13 }}>
+                Nenhum paciente cadastrado ainda nesta unidade.
+              </div>
+            ) : (
+              pacientesUnidade.map((p, i) => (
+                <div key={i} style={{ background: C.navyL, border: `1px solid ${C.teal}33`, borderRadius: 16, padding: "16px", marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
+                      <div style={{ fontSize: 12, color: C.teal, fontWeight: 800 }}>Código: {p.codigo}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => copiarCodigoPaciente(p.codigo)} title="Copiar Código" style={{ background: `${C.teal}22`, border: `1px solid ${C.teal}`, borderRadius: 8, padding: "6px 10px", color: C.teal, fontSize: 11, fontWeight: 800 }}>
+                        📋 Copiar
+                      </button>
+                      <button onClick={() => abrirWhatsAppWebPaciente(p)} title="Enviar WhatsApp" style={{ background: "#25D366", border: "none", borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, fontWeight: 800 }}>
+                        💬 WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    Tratamento: {p.tipo || p.tipo_tratamento || "Radioterapia"} — {p.sessao_atual || p.sessaoAtual || 0}/{p.total_sessoes || p.totalSessoes || 30} sessões
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: CADASTRO DE MÉDICOS, ENFERMEIROS E TÉCNICOS */}
         {tab === "cadastrar_prof" && (
           <div>
             {!profCadastrado ? (
@@ -272,11 +331,11 @@ export function AdminHospital({ onBack, onSair }) {
                   <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, color: C.teal }}>{pacienteGerado.codigo}</div>
                 </div>
 
-                <button onClick={copiarCodigoPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                <button onClick={() => copiarCodigoPaciente()} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
                   {copiado ? "✓ Código Copiado!" : "📋 Copiar Código do Paciente"}
                 </button>
 
-                <button onClick={abrirWhatsAppWebPaciente} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <button onClick={() => abrirWhatsAppWebPaciente()} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <span>💬 Enviar Cartão via WhatsApp / Web WhatsApp</span>
                 </button>
 
