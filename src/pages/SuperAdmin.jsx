@@ -4,10 +4,8 @@ import { PatientService, supabase } from '../services/supabaseClient';
 
 export function SuperAdmin({ onBack, onSair }) {
   const [tab, setTab] = useState("metricas"); // metricas | clinicas | usuarios
-  const [clinicas, setClinicas] = useState([
-    { id: 1, nome: "Hospital de Câncer AXION Central", cnpj: "12.345.678/0001-90", cidade: "São Paulo/SP", plano_saas: "Enterprise", email_admin: "admin.sp@axion.com.br", senha_provisoria: "AxionSp@2026", maxPacientes: 1000, pacientesAtivos: 142 },
-    { id: 2, nome: "Instituto Oncologia Vida", cnpj: "98.765.432/0001-10", cidade: "Curitiba/PR", plano_saas: "Hospitalar Pro", email_admin: "admin.vida@hospital.com", senha_provisoria: "VidaPro@2026", maxPacientes: 300, pacientesAtivos: 87 },
-  ]);
+  const [clinicas, setClinicas] = useState([]);
+  const [totalPacientesReal, setTotalPacientesReal] = useState(0);
   
   const [novaClinica, setNovaClinica] = useState({ 
     nome: "", 
@@ -26,9 +24,13 @@ export function SuperAdmin({ onBack, onSair }) {
     try {
       if (supabase) {
         const { data } = await supabase.from('hospitais_clinicas').select('*');
-        if (data && data.length > 0) setClinicas(data);
+        if (data) setClinicas(data);
       }
     } catch (e) {}
+
+    // Contagem 100% REAL de pacientes ativos no sistema (sem números fictícios)
+    const listaPacientes = await PatientService.listarPacientes();
+    setTotalPacientesReal(listaPacientes ? listaPacientes.length : 0);
   };
 
   useEffect(() => {
@@ -76,9 +78,28 @@ export function SuperAdmin({ onBack, onSair }) {
     setSalvando(false);
   };
 
+  const excluirHospital = async (hospitalId, nomeHospital, emailAdmin) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o hospital "${nomeHospital}" e revogar o acesso do administrador?`)) {
+      return;
+    }
+
+    if (supabase && hospitalId) {
+      try {
+        await supabase.from('hospitais_clinicas').delete().eq('id', hospitalId);
+      } catch (e) {}
+    }
+
+    const todosHospitais = JSON.parse(localStorage.getItem('axion_hospitais') || '{}');
+    if (emailAdmin) delete todosHospitais[emailAdmin.toLowerCase()];
+    if (nomeHospital) delete todosHospitais[nomeHospital.toLowerCase()];
+    localStorage.setItem('axion_hospitais', JSON.stringify(todosHospitais));
+
+    setClinicas(prev => prev.filter(c => c.id !== hospitalId && c.nome !== nomeHospital));
+  };
+
   const gerarTextoCredenciais = () => {
     if (!clinicaCadastrada) return "";
-    return `🏥 *Dados de Acesso do Administrador da Unidade AXION*\n\nOlá Gestor,\nSua unidade hospitalar foi cadastrada com sucesso na Plataforma AXION SaaS.\n\n• *Unidade:* ${clinicaCadastrada.nome}\n• *Login do Admin:* ${clinicaCadastrada.email_admin}\n• *Senha Provisória:* ${clinicaCadastrada.senha_provisoria}\n\n⚠️ *Aviso de Segurança:* No seu primeiro login, o sistema exigirá o cadastramento da sua nova senha pessoal e definitiva.`;
+    return `🏥 *Dados de Acesso do Administrador da Unidade AXION*\n\nOlá Gestor,\nSua unidade hospitalar foi cadastrada com sucesso na Plataforma AXION SaaS.\n\n• *Unidade:* ${clinicaCadastrada.nome}\n• *Login do Admin:* ${clinicaCadastrada.email_admin}\n• *Senha Provisória:* ${clinicaCadastrada.senha_provisoria}\n\n⚠️ *Aviso de Segurança:* No seu primeiro login, o sistema exigirá o cadastramento da sua nova senha pessoal.`;
   };
 
   const copiarCredenciaisClinica = () => {
@@ -114,7 +135,7 @@ export function SuperAdmin({ onBack, onSair }) {
         {/* Tab Selector */}
         <div style={{ display: "flex", gap: 6, background: C.navyM, padding: 4, borderRadius: 14 }}>
           {[["metricas", "📊 Visão Geral"], ["clinicas", "🏥 Clínicas & Hospitais"], ["usuarios", "🔑 Gestão de Acessos"]].map(([k, label]) => (
-            <button key={k} onClick={() => { setTab(k); setClinicaCadastrada(null); }} style={{ flex: 1, padding: "10px 4px", borderRadius: 10, border: "none", background: tab === k ? `${C.gold}22` : "transparent", color: tab === k ? C.gold : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.gold}` : "none" }}>
+            <button key={k} onClick={() => { setTab(k); setClinicaCadastrada(null); carregarDadosSaaS(); }} style={{ flex: 1, padding: "10px 4px", borderRadius: 10, border: "none", background: tab === k ? `${C.gold}22` : "transparent", color: tab === k ? C.gold : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.gold}` : "none" }}>
               {label}
             </button>
           ))}
@@ -122,7 +143,7 @@ export function SuperAdmin({ onBack, onSair }) {
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* TAB 1: VISÃO GERAL DE MÉTRICAS SAAS */}
+        {/* TAB 1: VISÃO GERAL DE MÉTRICAS REALISTAS */}
         {tab === "metricas" && (
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
@@ -131,7 +152,7 @@ export function SuperAdmin({ onBack, onSair }) {
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Hospitais Contratantes</div>
               </div>
               <div style={{ background: `linear-gradient(135deg,${C.teal}18,${C.navyL})`, border: `1.5px solid ${C.teal}44`, borderRadius: 18, padding: "16px", textAlign: "center" }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: C.teal }}>229</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: C.teal }}>{totalPacientesReal}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Pacientes Ativos na Nuvem</div>
               </div>
             </div>
@@ -147,7 +168,7 @@ export function SuperAdmin({ onBack, onSair }) {
                 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME DA UNIDADE HOSPITALAR *</label>
-                  <input value={novaClinica.nome} onChange={e => setNovaClinica(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Hospital do Câncer de Brasília" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novaClinica.nome} onChange={e => setNovaClinica(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Hospital Doutor Luiz Sampa" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
@@ -163,7 +184,7 @@ export function SuperAdmin({ onBack, onSair }) {
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.gold, fontWeight: 800, display: "block", marginBottom: 4 }}>E-MAIL DO ADMINISTRADOR DO HOSPITAL *</label>
-                  <input value={novaClinica.emailAdmin} onChange={e => setNovaClinica(p => ({ ...p, emailAdmin: e.target.value }))} placeholder="admin@hospitalbrasilia.com.br" style={{ width: "100%", background: C.navyM, border: `1.5px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novaClinica.emailAdmin} onChange={e => setNovaClinica(p => ({ ...p, emailAdmin: e.target.value }))} placeholder="admin@hospitalsampa.com.br" style={{ width: "100%", background: C.navyM, border: `1.5px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
@@ -215,16 +236,32 @@ export function SuperAdmin({ onBack, onSair }) {
             )}
 
             <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>CLÍNICAS PARCEIRAS ATIVAS ({clinicas.length})</div>
-            {clinicas.map((c, i) => (
-              <div key={i} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{c.nome}</div>
-                  <span style={{ fontSize: 11, background: `${C.gold}22`, color: C.gold, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>{c.plano_saas || c.plano}</span>
-                </div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>CNPJ: {c.cnpj} — {c.cidade}</div>
-                <div style={{ fontSize: 11, color: C.teal, fontWeight: 700 }}>🔑 Admin: {c.email_admin || "admin@hospital.com"}</div>
+            
+            {clinicas.length === 0 ? (
+              <div style={{ background: C.navyL, borderRadius: 16, padding: "20px", textAlign: "center", color: C.muted, fontSize: 13 }}>
+                Nenhuma clínica ou hospital cadastrado no momento.
               </div>
-            ))}
+            ) : (
+              clinicas.map((c, i) => (
+                <div key={i} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{c.nome}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>CNPJ: {c.cnpj} — {c.cidade}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <span style={{ fontSize: 11, background: `${C.gold}22`, color: C.gold, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>{c.plano_saas || c.plano}</span>
+                      
+                      {/* Botão de Excluir Hospital */}
+                      <button onClick={() => excluirHospital(c.id, c.nome, c.email_admin)} title="Excluir Hospital" style={{ background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 8, padding: "4px 8px", color: C.pink, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        🗑️ Excluir
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.teal, fontWeight: 700, marginTop: 4 }}>🔑 Admin: {c.email_admin || "admin@hospital.com"}</div>
+                </div>
+              ))
+            )}
           </div>
         )}
 
