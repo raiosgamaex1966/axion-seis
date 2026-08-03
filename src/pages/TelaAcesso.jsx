@@ -5,7 +5,7 @@ import { PatientService, supabase } from '../services/supabaseClient';
 
 export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital, onEntrarMedico }) {
   const [perfilAcesso, setPerfilAcesso] = useState("paciente"); // paciente | medico | admin_hospital | superadmin
-  const [modo, setModo] = useState("inicio"); // inicio | cadastro | login | recuperar | trocar_senha
+  const [modo, setModo] = useState("inicio"); // inicio | cadastro | login | recuperar | trocar_senha | trocar_senha_admin
   
   // Form Paciente
   const [form, setForm] = useState({ nome: "", idade: "", sexo: "", tipo: "", medico: "", hospital: "", totalSessoes: "", sessaoAtual: "" });
@@ -25,6 +25,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
   // Form Troca de Senha Obrigatória (Primeiro Acesso)
   const [trocaSenha, setTrocaSenha] = useState({ novaSenha: "", confirmaSenha: "" });
   const [profPrimeiroAcesso, setProfPrimeiroAcesso] = useState(null);
+  const [hospitalPrimeiroAcesso, setHospitalPrimeiroAcesso] = useState(null);
 
   const iF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -87,12 +88,12 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     setErroLogin("");
 
     if (!credenciais.email.trim()) {
-      setErroLogin("Digite seu e-mail de acesso.");
+      setErroLogin("Digite seu e-mail ou nome da unidade.");
       return;
     }
 
     if (!credenciais.senha || credenciais.senha.trim().length === 0) {
-      setErroLogin("🔒 A senha é obrigatória para entrar no sistema.");
+      setErroLogin("🔒 A senha de acesso é obrigatória.");
       return;
     }
 
@@ -104,7 +105,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
         return;
       }
       
-      // Validação exata da senha master do Robson
       if (credenciais.senha !== "Binho2020") {
         setErroLogin("❌ Senha incorreta para o Super Admin Master.");
         return;
@@ -114,12 +114,36 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR
+    // LOGIN DO ADMIN DA UNIDADE HOSPITALAR (Pode entrar por Nome do Hospital ou E-mail Admin)
     if (perfilAcesso === "admin_hospital") {
-      if (credenciais.senha.length < 4) {
-        setErroLogin("❌ Senha incorreta para o Administrador do Hospital.");
+      const termo = credenciais.email.toLowerCase().trim();
+      let hospEncontrado = null;
+
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('hospitais_clinicas')
+            .select('*')
+            .or(`email_admin.ilike.%${termo}%,nome.ilike.%${termo}%`)
+            .single();
+
+          if (data) hospEncontrado = data;
+        } catch (e) {}
+      }
+
+      if (!hospEncontrado) {
+        const todosHospitais = JSON.parse(localStorage.getItem('axion_hospitais') || '{}');
+        if (todosHospitais[termo]) hospEncontrado = todosHospitais[termo];
+      }
+
+      // Primeiro acesso com senha provisória do Admin do Hospital
+      if (hospEncontrado && (hospEncontrado.primeiro_acesso || hospEncontrado.primeiroAcesso)) {
+        setHospitalPrimeiroAcesso(hospEncontrado);
+        setModo("trocar_senha_admin");
+        setErroLogin("");
         return;
       }
+
       onEntrarAdminHospital();
       return;
     }
@@ -140,7 +164,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       if (todosProfs[emailLimpo]) profEncontrado = todosProfs[emailLimpo];
     }
 
-    // Verifica primeiro acesso com senha provisória
     if (profEncontrado && (profEncontrado.primeiro_acesso || profEncontrado.primeiroAcesso)) {
       setProfPrimeiroAcesso(profEncontrado);
       setModo("trocar_senha");
@@ -158,6 +181,19 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     }
     if (trocaSenha.novaSenha !== trocaSenha.confirmaSenha) {
       setErroLogin("As senhas não coincidem.");
+      return;
+    }
+
+    if (modo === "trocar_senha_admin") {
+      if (supabase && hospitalPrimeiroAcesso?.id) {
+        try {
+          await supabase.from('hospitais_clinicas').update({
+            primeiro_acesso: false,
+            senha_provisoria: null
+          }).eq('id', hospitalPrimeiroAcesso.id);
+        } catch (e) {}
+      }
+      onEntrarAdminHospital();
       return;
     }
 
@@ -244,10 +280,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
               {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginTop: 8, textAlign: "center" }}>{erroLogin}</div>}
               <button onClick={fazerLoginPaciente} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 15, marginTop: 18 }}>
                 Entrar →
-              </button>
-
-              <button onClick={() => { setModo("recuperar"); setPacienteRecuperado(null); setErroRecuperacao(""); }} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, fontWeight: 700, width: "100%", textDecoration: "underline", textAlign: "center", marginTop: 14 }}>
-                Esqueceu o código? Clique para recuperar
               </button>
             </div>
           )}
@@ -353,23 +385,52 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       {/* ADMIN DA UNIDADE HOSPITALAR */}
       {perfilAcesso === "admin_hospital" && (
         <div style={{ background: C.navyL, border: `1.5px solid ${C.purple}55`, borderRadius: 24, padding: "24px 20px", width: "100%", maxWidth: 380, animation: "rise 0.4s ease both" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, textAlign: "center", marginBottom: 4, color: C.purple }}>Admin da Unidade Hospitalar 🏢</div>
-          <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 18 }}>Gestão da equipe médica e código de pacientes.</div>
+          {modo !== "trocar_senha_admin" ? (
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, textAlign: "center", marginBottom: 4, color: C.purple }}>Admin da Unidade Hospitalar 🏢</div>
+              <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 18 }}>Gestão da equipe médica e código de pacientes.</div>
 
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>E-MAIL DO ADMIN DA UNIDADE *</label>
-            <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="admin@hospital.com.br" style={inputStyle} />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>SENHA DE ACESSO *</label>
-            <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
-          </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>NOME DA UNIDADE OU E-MAIL DO ADMIN *</label>
+                <input value={credenciais.email} onChange={e => setCredenciais(p => ({ ...p, email: e.target.value }))} placeholder="Ex: Hospital Brasília ou admin@hospital.com" style={inputStyle} />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>SENHA DE ACESSO *</label>
+                <input type="password" value={credenciais.senha} onChange={e => setCredenciais(p => ({ ...p, senha: e.target.value }))} placeholder="••••••••" style={inputStyle} />
+              </div>
 
-          {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
+              {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 10, textAlign: "center" }}>{erroLogin}</div>}
 
-          <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
-            🏢 Entrar como Admin do Hospital →
-          </button>
+              <button onClick={fazerLoginCorporativo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
+                🏢 Entrar como Admin do Hospital →
+              </button>
+            </div>
+          ) : (
+            /* MODAL OBRIGATÓRIO DE TROCA DE SENHA DO ADMIN DO HOSPITAL */
+            <div style={{ animation: "rise 0.4s ease" }}>
+              <div style={{ fontSize: 24, textAlign: "center", marginBottom: 6 }}>🔒</div>
+              <div style={{ fontSize: 16, fontWeight: 900, textAlign: "center", color: C.purple, marginBottom: 4 }}>Primeiro Acesso do Gestor</div>
+              <div style={{ fontSize: 11, color: C.muted, textAlign: "center", lineHeight: 1.6, marginBottom: 18 }}>
+                Bem-vindo ao AXION, Gestor da Unidade <strong>{hospitalPrimeiroAcesso?.nome}</strong>. Cadastre sua nova senha pessoal antes de acessar.
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ ...labelStyle, color: C.purple }}>CADASTRAR NOVA SENHA DO GESTOR *</label>
+                <input type="password" value={trocaSenha.novaSenha} onChange={e => setTrocaSenha(p => ({ ...p, novaSenha: e.target.value }))} placeholder="Mínimo 6 caracteres" style={inputStyle} />
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ ...labelStyle, color: C.purple }}>CONFIRMAR NOVA SENHA *</label>
+                <input type="password" value={trocaSenha.confirmaSenha} onChange={e => setTrocaSenha(p => ({ ...p, confirmaSenha: e.target.value }))} placeholder="Repita a nova senha" style={inputStyle} />
+              </div>
+
+              {erroLogin && <div style={{ color: C.pink, fontSize: 12, marginBottom: 12, textAlign: "center" }}>{erroLogin}</div>}
+
+              <button onClick={salvarNovaSenhaPrimeiroAcesso} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
+                🔒 Salvar Nova Senha & Acessar Painel Hospitalar
+              </button>
+            </div>
+          )}
         </div>
       )}
 
