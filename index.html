@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>AXION - Radioterapia Humanizada</title>
     
-    <!-- Favicon -->
+    <!-- Favicon & PWA App Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
 
     <!-- Open Graph / WhatsApp Sharing Meta Tags -->
     <meta property="og:type" content="website" />
@@ -22,9 +22,9 @@
     <meta name="twitter:description" content="Plataforma de Apoio e Acompanhamento ao Tratamento Radioterápico." />
     <meta name="twitter:image" content="https://axion-seis.vercel.app/og-image.jpg" />
     
-    <!-- PWA Meta Tags -->
+    <!-- PWA Progressive Web App Manifest & Config -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0a111e" />
+    <meta name="theme-color" content="#0a192f" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AXION" />
@@ -37,5 +37,18 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Registro do Service Worker PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            console.log('AXION PWA ativado com sucesso:', reg.scope);
+          }).catch(function(err) {
+            console.warn('Registro PWA:', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>
