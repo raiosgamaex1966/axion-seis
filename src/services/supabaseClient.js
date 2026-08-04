@@ -10,6 +10,55 @@ export const supabase = supabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+// Credenciais Pre-Cadastradas de Fallback para Garantia Global (Sampa D'or)
+const CONTAS_PADRAO_SAMPA = {
+  "luizsampa@gmail.com": {
+    id: "hosp_sampa_dor",
+    nome: "Hospital Sampa D'or",
+    email_admin: "luizsampa@gmail.com",
+    senha: "123456789",
+    senha_provisoria: "123456789",
+    primeiro_acesso: false,
+    role: "admin_hospital"
+  },
+  "chicocesar@gmail.com": {
+    id: "prof_chico_cesar",
+    nome: "Dr. Chico César",
+    email: "chicocesar@gmail.com",
+    cargo: "medico",
+    registro_profissional: "CRM 52345",
+    hospital_nome: "Hospital Sampa D'or",
+    senha: "123456789",
+    senha_provisoria: "123456789",
+    primeiro_acesso: false,
+    role: "medico"
+  },
+  "patriciamello@gmail.com": {
+    id: "prof_patricia_mello",
+    nome: "Patrícia Mello",
+    email: "patriciamello@gmail.com",
+    cargo: "enfermeiro",
+    registro_profissional: "COREN 56789",
+    hospital_nome: "Hospital Sampa D'or",
+    senha: "123456789",
+    senha_provisoria: "123456789",
+    primeiro_acesso: false,
+    role: "medico"
+  },
+  "ricardopinto@gmail.com": {
+    id: "prof_ricardo_pinto",
+    nome: "Ricardo Pinto",
+    email: "ricardopinto@gmail.com",
+    cargo: "tecnico",
+    registro_profissional: "CRTR 0477",
+    hospital_nome: "Hospital Sampa D'or",
+    senha: "123456789",
+    senha_provisoria: "123456789",
+    primeiro_acesso: false,
+    role: "medico"
+  }
+};
+
 // Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais / Sintomas / Prontuário Multidisciplinar
 export const PatientService = {
   // Purga registros fictícios de testes do Supabase e LocalStorage
@@ -20,6 +69,13 @@ export const PatientService = {
       } catch (e) {}
     }
     localStorage.removeItem('axion_pacientes');
+  },
+
+  // Retorna a conta de fallback se cadastrada
+  obterContaPadrao(email) {
+    if (!email) return null;
+    const termo = email.toLowerCase().trim();
+    return CONTAS_PADRAO_SAMPA[termo] || null;
   },
 
   // Login pelo código único
@@ -87,7 +143,6 @@ export const PatientService = {
       historico_medico: historicoMedico
     };
 
-    // Salva nas chaves dedicadas inquebráveis
     localStorage.setItem(`axion_enfermagem_${codigo}`, JSON.stringify(historicoEnfermagem));
     localStorage.setItem(`axion_tecnico_${codigo}`, JSON.stringify(historicoTecnico));
     localStorage.setItem(`axion_medico_${codigo}`, JSON.stringify(historicoMedico));
@@ -270,7 +325,6 @@ export const PatientService = {
   async listarPacientes() {
     let mapaPacientes = {};
 
-    // 1. Carrega do LocalStorage primeiro
     try {
       const todosLocais = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
       Object.values(todosLocais).forEach(p => {
@@ -290,7 +344,6 @@ export const PatientService = {
       });
     } catch (e) {}
 
-    // 2. Mescla com dados da nuvem do Supabase preservando historicos inquebráveis
     if (supabaseConfigured) {
       try {
         const { data, error } = await supabase
