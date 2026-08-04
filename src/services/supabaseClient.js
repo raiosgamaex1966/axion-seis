@@ -78,6 +78,15 @@ export const PatientService = {
     return CONTAS_PADRAO_SAMPA[termo] || null;
   },
 
+  // Retorna lista de profissionais padrão para a unidade
+  listarProfissionaisPadrao(nomeHospital) {
+    return [
+      CONTAS_PADRAO_SAMPA["chicocesar@gmail.com"],
+      CONTAS_PADRAO_SAMPA["patriciamello@gmail.com"],
+      CONTAS_PADRAO_SAMPA["ricardopinto@gmail.com"]
+    ];
+  },
+
   // Login pelo código único
   async loginByCode(codigoInput) {
     const alvo = normalizarCodigo(codigoInput);

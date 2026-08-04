@@ -9,16 +9,16 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
   const nomeHospital = (hospital?.nome && !hospital.nome.includes("@"))
     ? hospital.nome
-    : (hospital?.nome_unidade || "Hospital Doutor Luiz Sampa");
+    : (hospital?.nome_unidade || "Hospital Sampa D'or");
 
-  // Profissionais da Unidade (Inicia Vazio para nao misturar dados ficticios)
+  // Profissionais da Unidade
   const [equipe, setEquipe] = useState([]);
 
-  // Pacientes da Unidade (Inicia Vazio para nao misturar dados ficticios)
+  // Pacientes da Unidade
   const [pacientesUnidade, setPacientesUnidade] = useState([]);
 
   // Form Profissional
-  const [novoProf, setNovoProf] = useState({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
+  const [novoProf, setNovoProf] = useState({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "123456789" });
   const [profCadastrado, setProfCadastrado] = useState(null);
   const [copiadoProf, setCopiadoProf] = useState(false);
 
@@ -46,12 +46,18 @@ export function AdminHospital({ onBack, onSair, hospital }) {
       } catch (e) {}
     }
 
-    if (lista.length === 0) {
-      const todosGlobais = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
-      lista = Object.values(todosGlobais).filter(p => p.hospital_nome === nomeHospital || p.hospital_id === hospital?.id);
-    }
+    const todosGlobais = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
+    const locais = Object.values(todosGlobais).filter(p => p.hospital_nome === nomeHospital || p.hospital_id === hospital?.id);
 
-    setEquipe(lista);
+    const padrao = PatientService.listarProfissionaisPadrao(nomeHospital);
+
+    // Mescla unificada sem duplicados
+    const mapa = {};
+    padrao.forEach(p => { if (p && p.email) mapa[p.email.toLowerCase()] = p; });
+    locais.forEach(p => { if (p && p.email) mapa[p.email.toLowerCase()] = p; });
+    lista.forEach(p => { if (p && p.email) mapa[p.email.toLowerCase()] = p; });
+
+    setEquipe(Object.values(mapa));
   };
 
   const carregarPacientesUnidade = async () => {
@@ -81,8 +87,9 @@ export function AdminHospital({ onBack, onSair, hospital }) {
       registro_profissional: novoProf.registro,
       cargo: novoProf.cargo,
       especialidade: novoProf.especialidade || "Radioterapia Oncologia",
-      senha_provisoria: novoProf.senhaProvisoria,
-      primeiro_acesso: true,
+      senha_provisoria: novoProf.senhaProvisoria || "123456789",
+      senha: novoProf.senhaProvisoria || "123456789",
+      primeiro_acesso: false,
       ativo: true
     };
 
@@ -92,32 +99,12 @@ export function AdminHospital({ onBack, onSair, hospital }) {
       } catch (e) {}
     }
 
-    // Salva no Dicionario Global do LocalStorage para permitir login imediato em TelaAcesso
     const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
     todosProfs[emailLimpo] = prof;
     localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
 
-    setEquipe(prev => [prof, ...prev]);
     setProfCadastrado(prof);
-    setNovoProf({ nome: "", email: "", registro: "", cargo: "medico", especialidade: "", senhaProvisoria: "Axion@" + Math.floor(1000 + Math.random() * 9000) });
-  };
-
-  const gerarTextoCredenciaisProf = () => {
-    if (!profCadastrado) return "";
-    return `🏥 *Credenciais de Acesso AXION*\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()} na unidade ${nomeHospital}.\n\n• *E-mail:* ${profCadastrado.email}\n• *Senha Provisória:* ${profCadastrado.senha_provisoria}\n\n⚠️ *Segurança:* No seu primeiro acesso, o sistema exigirá o cadastramento da sua nova senha pessoal.`;
-  };
-
-  const copiarCredenciaisProf = () => {
-    const texto = gerarTextoCredenciaisProf();
-    navigator.clipboard.writeText(texto);
-    setCopiadoProf(true);
-    setTimeout(() => setCopiadoProf(false), 3000);
-  };
-
-  const abrirWhatsAppWebProf = () => {
-    const texto = gerarTextoCredenciaisProf();
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+    carregarEquipeUnidade();
   };
 
   const cadastrarPacienteNaUnidade = async () => {
@@ -146,36 +133,35 @@ export function AdminHospital({ onBack, onSair, hospital }) {
     carregarPacientesUnidade();
   };
 
-  const copiarCodigoPaciente = (codigo) => {
-    const cod = codigo || pacienteGerado?.codigo;
-    if (!cod) return;
-    navigator.clipboard.writeText(cod);
+  const copiarAcessoProf = () => {
+    const txt = `🏥 Credenciais de Acesso AXION\n\nOlá ${profCadastrado.nome},\nSeu acesso foi liberado como ${profCadastrado.cargo.toUpperCase()} na unidade ${nomeHospital}.\n\n* E-mail: ${profCadastrado.email}\n* Senha de Acesso: ${profCadastrado.senha_provisoria}\n\nAcesse: https://axion-seis.vercel.app`;
+    navigator.clipboard.writeText(txt);
+    setCopiadoProf(true);
+    setTimeout(() => setCopiadoProf(false), 3000);
+  };
+
+  const copiarAcessoPac = () => {
+    const txt = `🏥 Código de Acompanhamento AXION\n\nOlá ${pacienteGerado.nome},\nSeu cadastro no tratamento de Radioterapia (${pacienteGerado.tipo}) foi realizado com sucesso!\n\n* Código de Acesso: ${pacienteGerado.codigo}\n\nAcesse: https://axion-seis.vercel.app`;
+    navigator.clipboard.writeText(txt);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 3000);
   };
 
-  const abrirWhatsAppWebPaciente = (pac) => {
-    const p = pac || pacienteGerado;
-    if (!p) return;
-    const texto = `🎟️ *Seu Cartão de Acesso AXION*\n\nOlá ${p.nome},\nSeu cadastro no AXION foi realizado na unidade ${nomeHospital}.\n\n• *Seu Código Único:* ${p.codigo}\n\nBaixe ou acesse o aplicativo e digite este código para acompanhar seu tratamento!`;
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
+  const cargoBadge = {
+    medico: { label: "Médico Oncologista", bg: C.purple, emoji: "👨‍⚕️" },
+    enfermeiro: { label: "Enfermeiro(a)", bg: C.pink, emoji: "🩺" },
+    tecnico: { label: "Técnico em Radioterapia", bg: C.blue, emoji: "⚛️" }
   };
-
-  const cargoLabel = { medico: "👨‍⚕️ Médico Oncologista", enfermeiro: "🩺 Enfermeiro(a)", tecnico: "⚛️ Técnico em Radioterapia" };
-  const cargoBadge = { medico: C.purple, enfermeiro: C.pink, tecnico: C.blue };
 
   return (
     <div style={{ paddingBottom: 100 }}>
-      {/* Header Admin com Nome Exato da Unidade Hospitalar */}
+      {/* Header Clínico com Nome da Unidade */}
       <div style={{ background: `linear-gradient(135deg,${C.navyL},${C.navyM})`, padding: "48px 20px 20px", borderBottom: `2px solid ${C.purple}44` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
           <button onClick={onBack} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 12, width: 40, height: 40, color: C.text, fontSize: 18, flexShrink: 0 }}>←</button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>ADMIN DA UNIDADE</div>
-            <div style={{ fontSize: 18, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", color: C.purple, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {nomeHospital} 🏥
-            </div>
+          <div>
+            <div style={{ fontSize: 11, color: C.purple, fontWeight: 800, letterSpacing: 1.5 }}>ADMIN DA UNIDADE</div>
+            <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif", color: C.purple }}>{nomeHospital} 🏥</div>
           </div>
           {onSair && (
             <button onClick={onSair} title="Sair do painel" style={{ marginLeft: "auto", background: "rgba(255,107,157,0.15)", border: `1px solid ${C.pink}`, borderRadius: 12, padding: "8px 14px", color: C.pink, fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
@@ -184,184 +170,180 @@ export function AdminHospital({ onBack, onSair, hospital }) {
           )}
         </div>
 
-        {/* Tab Selector */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: C.navyM, padding: 4, borderRadius: 14 }}>
-          {[
-            ["equipe", `👥 Equipe (${equipe.length})`],
-            ["lista_pacientes", `📋 Pacientes (${pacientesUnidade.length})`],
-            ["cadastrar_prof", "＋ Profissional"],
-            ["cadastrar_paciente", "＋ Admitir Paciente"]
-          ].map(([k, label]) => (
-            <button key={k} onClick={() => { setTab(k); setProfCadastrado(null); carregarPacientesUnidade(); carregarEquipeUnidade(); }} style={{ padding: "9px 2px", borderRadius: 10, border: "none", background: tab === k ? `${C.purple}22` : "transparent", color: tab === k ? C.purple : C.muted, fontWeight: tab === k ? 900 : 600, fontSize: 11, borderBottom: tab === k ? `2px solid ${C.purple}` : "none" }}>
-              {label}
-            </button>
-          ))}
+        {/* Abas de Navegação Interna do Admin */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "rgba(0,0,0,0.2)", padding: 4, borderRadius: 14 }}>
+          <button onClick={() => setTab("equipe")} style={{ background: tab === "equipe" || tab === "cadastrar_prof" ? C.purple : "transparent", color: tab === "equipe" || tab === "cadastrar_prof" ? "#fff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
+            👥 Equipe ({equipe.length})
+          </button>
+          <button onClick={() => setTab("lista_pacientes")} style={{ background: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? C.purple : "transparent", color: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? "#fff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
+            📜 Pacientes ({pacientesUnidade.length})
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+          <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `${C.purple}22`, border: `1px solid ${C.purple}55`, color: C.purple, borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800 }}>
+            + Profissional
+          </button>
+          <button onClick={() => { setTab("cadastrar_paciente"); setPacienteGerado(null); }} style={{ background: `${C.teal}22`, border: `1px solid ${C.teal}55`, color: C.teal, borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800 }}>
+            + Admitir Paciente
+          </button>
         </div>
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* TAB 1: EQUIPE DA UNIDADE */}
+        {/* ABA 1: LISTA DA EQUIPE DA UNIDADE */}
         {tab === "equipe" && (
           <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PROFISSIONAIS CADASTRADOS EM {nomeHospital.toUpperCase()} ({equipe.length})</div>
-            
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>
+              PROFISSIONAIS CADASTRADOS EM {nomeHospital.toUpperCase()} ({equipe.length})
+            </div>
+
             {equipe.length === 0 ? (
-              <div style={{ background: C.navyL, borderRadius: 16, padding: "24px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>👨‍⚕️</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Nenhum profissional cadastrado ainda</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Clique no botão "＋ Profissional" acima para cadastrar médicos, enfermeiros e técnicos desta unidade.</div>
-                <button onClick={() => setTab("cadastrar_prof")} style={{ background: C.purple, border: "none", borderRadius: 12, padding: "10px 20px", color: C.navy, fontWeight: 900, fontSize: 12 }}>
-                  ＋ Cadastrar Primeiro Profissional
+              <div style={{ background: C.navyL, borderRadius: 20, padding: "32px 20px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>👨‍⚕️</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Nenhum profissional cadastrado ainda</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 18 }}>Clique no botão "+ Profissional" acima para cadastrar médicos, enfermeiros e técnicos desta unidade.</div>
+                <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `linear-gradient(135deg,${C.purple},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontWeight: 800, fontSize: 13 }}>
+                  + Cadastrar Primeiro Profissional
                 </button>
               </div>
             ) : (
-              equipe.map((p, i) => (
-                <div key={i} style={{ background: C.navyL, border: `1.5px solid ${cargoBadge[p.cargo] || C.navyM}44`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
-                    <span style={{ fontSize: 10, background: `${cargoBadge[p.cargo] || C.purple}22`, color: cargoBadge[p.cargo] || C.purple, padding: "3px 10px", borderRadius: 99, fontWeight: 800 }}>
-                      {cargoLabel[p.cargo] || p.cargo}
-                    </span>
+              equipe.map((p, idx) => {
+                const infoCargo = cargoBadge[p.cargo] || cargoBadge.medico;
+                return (
+                  <div key={idx} style={{ background: C.navyL, border: `1px solid ${infoCargo.bg}33`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>Registro: {p.registro_profissional || "Ativo"} — {p.email}</div>
+                      </div>
+                      <span style={{ background: `${infoCargo.bg}22`, color: infoCargo.bg, border: `1px solid ${infoCargo.bg}55`, borderRadius: 99, padding: "4px 10px", fontSize: 10, fontWeight: 800 }}>
+                        {infoCargo.emoji} {infoCargo.label}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>Registro: {p.registro || p.registro_profissional || "CRM/COREN"} — {p.email}</div>
-                  {p.senha_provisoria && <div style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>🔑 Senha Provisória: {p.senha_provisoria} (Troca no 1º Acesso)</div>}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
 
-        {/* TAB LISTA DE PACIENTES DA UNIDADE */}
-        {tab === "lista_pacientes" && (
-          <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PACIENTES ADMITIDOS EM {nomeHospital.toUpperCase()} ({pacientesUnidade.length})</div>
-            
-            {pacientesUnidade.length === 0 ? (
-              <div style={{ background: C.navyL, borderRadius: 16, padding: "24px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🎟️</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Nenhum paciente admitido nesta unidade ainda</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Clique em "＋ Admitir Paciente" para emitir o primeiro cartão de acesso.</div>
-                <button onClick={() => setTab("cadastrar_paciente")} style={{ background: C.teal, border: "none", borderRadius: 12, padding: "10px 20px", color: C.navy, fontWeight: 900, fontSize: 12 }}>
-                  🎟️ Admitir Primeiro Paciente
-                </button>
-              </div>
-            ) : (
-              pacientesUnidade.map((p, i) => (
-                <div key={i} style={{ background: C.navyL, border: `1px solid ${C.teal}33`, borderRadius: 16, padding: "16px", marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
-                      <div style={{ fontSize: 12, color: C.teal, fontWeight: 800 }}>Código: {p.codigo}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => copiarCodigoPaciente(p.codigo)} title="Copiar Código" style={{ background: `${C.teal}22`, border: `1.5px solid ${C.teal}`, borderRadius: 8, padding: "6px 10px", color: C.teal, fontSize: 11, fontWeight: 800 }}>
-                        📋 Copiar
-                      </button>
-                      <button onClick={() => abrirWhatsAppWebPaciente(p)} title="Enviar WhatsApp" style={{ background: "#25D366", border: "none", borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, fontWeight: 800 }}>
-                        💬 WhatsApp
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted }}>
-                    Tratamento: {p.tipo || p.tipo_tratamento || "Radioterapia"} — {p.sessao_atual || p.sessaoAtual || 0}/{p.total_sessoes || p.totalSessoes || 30} sessões
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* TAB 2: CADASTRO DE MÉDICOS, ENFERMEIROS E TÉCNICOS */}
+        {/* ABA 2: CADASTRAR NOVO PROFISSIONAL */}
         {tab === "cadastrar_prof" && (
-          <div>
+          <div style={{ background: C.navyL, border: `1.5px solid ${C.purple}55`, borderRadius: 20, padding: "20px" }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.purple, marginBottom: 4 }}>+ Cadastrar Profissional de Saúde</div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Libere o acesso para Médicos, Enfermeiros e Técnicos nesta unidade.</div>
+
             {!profCadastrado ? (
-              <div style={{ background: C.navyL, border: `1.5px solid ${C.purple}44`, borderRadius: 20, padding: "20px" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.purple, marginBottom: 12 }}>➕ Cadastrar Profissional em {nomeHospital}</div>
+              <div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO *</label>
+                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Roberto Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                </div>
 
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>CARGO DO PROFISSIONAL *</label>
-                  <select value={novoProf.cargo} onChange={e => setNovoProf(p => ({ ...p, cargo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>E-MAIL PROFISSIONAL DE ACESSO *</label>
+                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="exemplo@hospital.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>CARGO / FUNÇÃO NA CLÍNICA *</label>
+                  <select value={novoProf.cargo} onChange={e => setNovoProf(p => ({ ...p, cargo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }}>
                     <option value="medico">👨‍⚕️ Médico Oncologista</option>
                     <option value="enfermeiro">🩺 Enfermeiro(a) Oncologia</option>
                     <option value="tecnico">⚛️ Técnico em Radioterapia</option>
                   </select>
                 </div>
 
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO *</label>
-                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Chico César" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
-                </div>
-
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>E-MAIL PROFISSIONAL (LOGIN) *</label>
-                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="chicocesar@gmail.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
-                </div>
-
-                <div style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>REGISTRO PROFISSIONAL (CRM / COREN / CRTR)</label>
-                  <input value={novoProf.registro} onChange={e => setNovoProf(p => ({ ...p, registro: e.target.value }))} placeholder="Ex: CRM 12345/SP" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.registro} onChange={e => setNovoProf(p => ({ ...p, registro: e.target.value }))} placeholder="Ex: CRM 12345-SP" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 11, color: C.gold, fontWeight: 800, display: "block", marginBottom: 4 }}>🔑 SENHA PROVISÓRIA GERADA</label>
-                  <input value={novoProf.senhaProvisoria} onChange={e => setNovoProf(p => ({ ...p, senhaProvisoria: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1.5px solid ${C.gold}55`, borderRadius: 12, padding: "10px 14px", color: C.gold, fontSize: 14, fontWeight: 800 }} />
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>O profissional será obrigado a trocar a senha no 1º acesso.</div>
-                </div>
-
-                <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.purple},${C.blue})`, color: "#fff", fontWeight: 900, fontSize: 14 }}>
-                  ➕ Cadastrar Profissional e Gerar Credenciais
+                <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoProf.nome && novoProf.email ? `linear-gradient(135deg,${C.purple},${C.blue})` : C.navyM, color: "#fff", fontWeight: 900, fontSize: 14 }}>
+                  🎉 Cadastrar Profissional & Gerar Acesso
                 </button>
               </div>
             ) : (
-              <div style={{ background: C.navyL, border: `2px solid ${C.purple}`, borderRadius: 20, padding: "24px", textAlign: "center", animation: "rise 0.3s ease" }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>🔑</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: C.purple, marginBottom: 4 }}>Credenciais Geradas para {profCadastrado.nome}!</div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Envie os dados de acesso abaixo para o profissional:</div>
+              <div style={{ textAlign: "center", animation: "rise 0.3s ease" }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: C.teal, marginBottom: 4 }}>Profissional Cadastrado!</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Copie e envie as credenciais abaixo para o profissional.</div>
 
-                <div style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${C.purple}44`, borderRadius: 16, padding: "16px", textAlign: "left", marginBottom: 16, fontSize: 12, lineHeight: 1.7 }}>
-                  <div><strong>Unidade:</strong> {nomeHospital}</div>
-                  <div><strong>Cargo:</strong> {profCadastrado.cargo.toUpperCase()}</div>
+                <div style={{ background: C.navyM, borderRadius: 14, padding: "16px", marginBottom: 16, textAlign: "left", fontSize: 12, lineHeight: 1.8 }}>
+                  <div><strong>Profissional:</strong> {profCadastrado.nome}</div>
+                  <div><strong>Cargo:</strong> {cargoBadge[profCadastrado.cargo]?.label}</div>
                   <div><strong>E-mail:</strong> {profCadastrado.email}</div>
-                  <div><strong>Senha Provisória:</strong> <span style={{ color: C.gold, fontWeight: 800 }}>{profCadastrado.senha_provisoria}</span></div>
-                  <div style={{ color: C.teal, marginTop: 4, fontWeight: 700 }}>🔒 Status: Requer Troca Obrigatória de Senha no 1º Acesso.</div>
+                  <div><strong>Senha de Acesso:</strong> <span style={{ color: C.gold, fontWeight: 900 }}>{profCadastrado.senha_provisoria}</span></div>
                 </div>
 
-                <button onClick={copiarCredenciaisProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
-                  {copiadoProf ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados de Acesso"}
+                <button onClick={copiarAcessoProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                  {copiadoProf ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados para Enviar via WhatsApp"}
                 </button>
 
-                <button onClick={abrirWhatsAppWebProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  <span>💬 Enviar via WhatsApp / Web WhatsApp</span>
-                </button>
-
-                <button onClick={() => setProfCadastrado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
-                  ← Cadastrar outro profissional
+                <button onClick={() => setTab("equipe")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: C.text, fontWeight: 800, fontSize: 13 }}>
+                  Voltar para Lista de Equipe →
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* TAB 3: ADMITIR PACIENTE E EMITIR CÓDIGO */}
-        {tab === "cadastrar_paciente" && (
+        {/* ABA 3: LISTA DE PACIENTES DA UNIDADE */}
+        {tab === "lista_pacientes" && (
           <div>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>
+              PACIENTES ADMITIDOS NA UNIDADE ({pacientesUnidade.length})
+            </div>
+
+            {pacientesUnidade.length === 0 ? (
+              <div style={{ background: C.navyL, borderRadius: 20, padding: "32px 20px", textAlign: "center", border: `1px solid ${C.navyM}` }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📜</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Nenhum paciente admitido ainda</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 18 }}>Clique no botão "+ Admitir Paciente" acima para cadastrar o primeiro paciente desta unidade.</div>
+                <button onClick={() => { setTab("cadastrar_paciente"); setPacienteGerado(null); }} style={{ background: `linear-gradient(135deg,${C.teal},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: C.navy, fontWeight: 900, fontSize: 13 }}>
+                  + Admitir Primeiro Paciente
+                </button>
+              </div>
+            ) : (
+              pacientesUnidade.map((p, idx) => (
+                <div key={idx} style={{ background: C.navyL, border: `1px solid ${C.teal}33`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{p.tipo || p.tipo_tratamento} — {p.sessao_atual || p.sessaoAtual || 0}/{p.total_sessoes || p.totalSessoes || 30} sessões</div>
+                    </div>
+                    <div style={{ background: `${C.teal}22`, color: C.teal, border: `1px solid ${C.teal}55`, borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif" }}>
+                      {p.codigo}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ABA 4: ADMITIR PACIENTE */}
+        {tab === "cadastrar_paciente" && (
+          <div style={{ background: C.navyL, border: `1.5px solid ${C.teal}55`, borderRadius: 20, padding: "20px" }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: C.teal, marginBottom: 4 }}>+ Admitir Novo Paciente na Unidade</div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Gere o Código de Acesso único para o paciente acompanhar o tratamento.</div>
+
             {!pacienteGerado ? (
-              <div style={{ background: C.navyL, border: `1.5px solid ${C.teal}44`, borderRadius: 20, padding: "20px" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.teal, marginBottom: 12 }}>🎟️ Admitir Paciente em {nomeHospital}</div>
-                
+              <div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO DO PACIENTE *</label>
-                  <input value={novoPac.nome} onChange={e => setNovoPac(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Carlos Eduardo Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novoPac.nome} onChange={e => setNovoPac(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Roberto de Jesus Vasconcelos" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>IDADE</label>
-                    <input type="number" value={novoPac.idade} onChange={e => setNovoPac(p => ({ ...p, idade: e.target.value }))} placeholder="55" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                    <input type="number" value={novoPac.idade} onChange={e => setNovoPac(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 62" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>SEXO</label>
-                    <select value={novoPac.sexo} onChange={e => setNovoPac(p => ({ ...p, sexo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }}>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>SEXO BIOLÓGICO</label>
+                    <select value={novoPac.sexo} onChange={e => setNovoPac(p => ({ ...p, sexo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }}>
                       <option value="Masculino">Masculino</option>
                       <option value="Feminino">Feminino</option>
                     </select>
@@ -369,35 +351,36 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TIPO DE TRATAMENTO RADIOTERÁPICO *</label>
-                  <input value={novoPac.tipo} onChange={e => setNovoPac(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Mama, Próstata, Pulmão..." style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TIPO DE TRATAMENTO / CID *</label>
+                  <input value={novoPac.tipo} onChange={e => setNovoPac(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Pulmão, Próstata, Mama..." style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
                 </div>
 
-                <button onClick={cadastrarPacienteNaUnidade} disabled={!novoPac.nome || !novoPac.tipo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
-                  🎟️ Salvar e Emitir Cartão de Acesso
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TOTAL DE SESSÕES PLANEJADAS</label>
+                  <input type="number" value={novoPac.totalSessoes} onChange={e => setNovoPac(p => ({ ...p, totalSessoes: e.target.value }))} placeholder="30" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                </div>
+
+                <button onClick={cadastrarPacienteNaUnidade} disabled={!novoPac.nome || !novoPac.tipo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoPac.nome && novoPac.tipo ? `linear-gradient(135deg,${C.teal},${C.blue})` : C.navyM, color: C.navy, fontWeight: 900, fontSize: 14 }}>
+                  🎉 Admitir Paciente & Gerar Código AXION
                 </button>
               </div>
             ) : (
-              <div style={{ background: C.navyL, border: `2px solid ${C.teal}`, borderRadius: 20, padding: "24px", textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>🎫</div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: C.teal, marginBottom: 4 }}>Código Gerado para {pacienteGerado.nome}!</div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Copie ou envie o código de acesso abaixo:</div>
+              <div style={{ textAlign: "center", animation: "rise 0.3s ease" }}>
+                <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: C.teal, marginBottom: 4 }}>Paciente Admitido!</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Código Único gerado para acompanhamento do tratamento.</div>
 
-                <div style={{ background: `${C.teal}18`, border: `2px solid ${C.teal}`, borderRadius: 16, padding: "16px", marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, color: C.teal, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>CÓDIGO ÚNICO DO PACIENTE</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, color: C.teal }}>{pacienteGerado.codigo}</div>
+                <div style={{ background: `${C.teal}18`, border: `2px solid ${C.teal}`, borderRadius: 18, padding: "18px", marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, color: C.teal, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>CÓDIGO ÚNICO AXION</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: 4, color: C.teal, fontFamily: "'Space Grotesk',sans-serif" }}>{pacienteGerado.codigo}</div>
                 </div>
 
-                <button onClick={() => copiarCodigoPaciente()} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
-                  {copiado ? "✓ Código Copiado!" : "📋 Copiar Código do Paciente"}
+                <button onClick={copiarAcessoPac} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.teal}`, background: copiado ? `${C.teal}22` : "transparent", color: C.teal, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                  {copiado ? "✓ Código Copiado!" : "📋 Copiar Código para Enviar ao Paciente"}
                 </button>
 
-                <button onClick={() => abrirWhatsAppWebPaciente()} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "#25D366", color: "#fff", fontWeight: 900, fontSize: 13, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  <span>💬 Enviar Cartão via WhatsApp / Web WhatsApp</span>
-                </button>
-
-                <button onClick={() => setPacienteGerado(null)} style={{ background: "transparent", border: `1px solid ${C.muted}`, borderRadius: 12, padding: "10px 20px", color: C.muted, fontWeight: 700, fontSize: 12 }}>
-                  ← Cadastrar outro paciente
+                <button onClick={() => setTab("lista_pacientes")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: C.text, fontWeight: 800, fontSize: 13 }}>
+                  Ver Lista de Pacientes →
                 </button>
               </div>
             )}
