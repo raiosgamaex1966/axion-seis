@@ -10,7 +10,7 @@ export const supabase = supabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais / Sintomas
+// Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais / Sintomas / Prontuário Multidisciplinar
 export const PatientService = {
   // Purga registros fictícios de testes do Supabase e LocalStorage
   async purgeMockPatients() {
@@ -65,6 +65,9 @@ export const PatientService = {
           hospital: perfil.hospital || 'Hospital de Câncer AXION',
           total_sessoes: parseInt(perfil.totalSessoes || perfil.total_sessoes) || 30,
           sessao_atual: parseInt(perfil.sessaoAtual || perfil.sessao_atual) || 0,
+          historico_enfermagem: perfil.historico_enfermagem || [],
+          historico_tecnico: perfil.historico_tecnico || [],
+          historico_medico: perfil.historico_medico || []
         });
       } catch (err) {
         console.warn('Could not save to Supabase, fallback to local:', err);
@@ -78,11 +81,53 @@ export const PatientService = {
     return perfil;
   },
 
+  // Adicionar Evolução de Enfermagem
+  async adicionarEvolucaoEnfermagem(codigo, registroEnfermagem) {
+    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+    let paciente = todos[codigo] || {};
+
+    const historico = paciente.historico_enfermagem || [];
+    historico.unshift(registroEnfermagem);
+    paciente.historico_enfermagem = historico;
+
+    await this.savePatient(paciente);
+    return paciente;
+  },
+
+  // Adicionar Registro Técnico de Aplicação
+  async adicionarRegistroTecnico(codigo, registroTecnico, novaSessaoAtual) {
+    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+    let paciente = todos[codigo] || {};
+
+    const historico = paciente.historico_tecnico || [];
+    historico.unshift(registroTecnico);
+    paciente.historico_tecnico = historico;
+    if (novaSessaoAtual !== undefined) {
+      paciente.sessaoAtual = novaSessaoAtual;
+      paciente.sessao_atual = novaSessaoAtual;
+    }
+
+    await this.savePatient(paciente);
+    return paciente;
+  },
+
+  // Adicionar Conduta Médica Oncologia
+  async adicionarCondutaMedica(codigo, registroMedico) {
+    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+    let paciente = todos[codigo] || {};
+
+    const historico = paciente.historico_medico || [];
+    historico.unshift(registroMedico);
+    paciente.historico_medico = historico;
+
+    await this.savePatient(paciente);
+    return paciente;
+  },
+
   // Registrar Sintomas Diários no Supabase + LocalStorage
   async registrarSintomas(codigo, sintomasObj) {
     if (!codigo) return false;
 
-    // 1. Tenta salvar no Supabase na tabela de sintomas e atualizar o registro do paciente
     if (supabaseConfigured) {
       try {
         await supabase.from('sintomas_pacientes').insert([{
@@ -99,7 +144,6 @@ export const PatientService = {
       }
     }
 
-    // 2. Salva no LocalStorage em histórico + perfil do paciente
     try {
       const keyHist = `axion_sintomas_${codigo}`;
       const historico = JSON.parse(localStorage.getItem(keyHist) || '[]');
@@ -124,7 +168,6 @@ export const PatientService = {
   async obterSintomas(codigo) {
     if (!codigo) return null;
 
-    // 1. Tenta carregar do LocalStorage primeiro
     try {
       const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
       if (todos[codigo] && todos[codigo].sintomas) {
@@ -135,7 +178,6 @@ export const PatientService = {
       if (historico.length > 0) return historico[0].sintomas;
     } catch (e) {}
 
-    // 2. Tenta carregar do Supabase
     if (supabaseConfigured) {
       try {
         const { data } = await supabase
@@ -152,11 +194,10 @@ export const PatientService = {
     return null;
   },
 
-  // Listar pacientes unificando Supabase + LocalStorage (Filtrando registros de teste)
+  // Listar pacientes unificando Supabase + LocalStorage
   async listarPacientes() {
     let mapaPacientes = {};
 
-    // 1. Carrega do LocalStorage primeiro
     try {
       const todosLocais = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
       Object.values(todosLocais).forEach(p => {
@@ -166,7 +207,6 @@ export const PatientService = {
       });
     } catch (e) {}
 
-    // 2. Mescla com dados da nuvem do Supabase
     if (supabaseConfigured) {
       try {
         const { data, error } = await supabase
@@ -176,7 +216,6 @@ export const PatientService = {
 
         if (data && !error) {
           data.forEach(p => {
-            // Ignora os codigos ficticios de testes antigos
             if (p.codigo && !['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966'].includes(p.codigo)) {
               mapaPacientes[p.codigo] = {
                 ...mapaPacientes[p.codigo],
@@ -186,7 +225,10 @@ export const PatientService = {
                 tipo: p.tipo_tratamento || p.tipo,
                 sessaoAtual: p.sessao_atual,
                 totalSessoes: p.total_sessoes,
-                sintomas: p.ultimos_sintomas || mapaPacientes[p.codigo]?.sintomas
+                sintomas: p.ultimos_sintomas || mapaPacientes[p.codigo]?.sintomas,
+                historico_enfermagem: p.historico_enfermagem || mapaPacientes[p.codigo]?.historico_enfermagem || [],
+                historico_tecnico: p.historico_tecnico || mapaPacientes[p.codigo]?.historico_tecnico || [],
+                historico_medico: p.historico_medico || mapaPacientes[p.codigo]?.historico_medico || []
               };
             }
           });
