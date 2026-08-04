@@ -168,16 +168,32 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     // 3. LOGIN DOS PROFISSIONAIS DA SAÚDE (Médicos, Enfermeiros, Técnicos)
     let profEncontrado = null;
 
+    // Busca no Supabase em primeiro lugar
     if (supabase) {
       try {
-        const { data } = await supabase.from('profissionais').select('*').eq('email', termo).single();
-        if (data) profEncontrado = data;
+        const { data } = await supabase.from('profissionais').select('*').ilike('email', termo).limit(1);
+        if (data && data.length > 0) profEncontrado = data[0];
       } catch (e) {}
     }
 
+    // Busca no dicionario global axion_profissionais
     if (!profEncontrado) {
       const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
       if (todosProfs[termo]) profEncontrado = todosProfs[termo];
+    }
+
+    // Busca de segurança em chaves locais por hospital
+    if (!profEncontrado) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('axion_profissionais_')) {
+          try {
+            const arr = JSON.parse(localStorage.getItem(key) || '[]');
+            const achei = arr.find(p => p.email && p.email.toLowerCase().trim() === termo);
+            if (achei) { profEncontrado = achei; break; }
+          } catch (e) {}
+        }
+      }
     }
 
     if (!profEncontrado) {
@@ -185,11 +201,19 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // Validação estrita LGPD da senha do profissional
+    // Validação estrita LGPD da senha do profissional (Provisória ou Definitiva)
     const senhaCorretaProf = profEncontrado.senha_provisoria || profEncontrado.senha;
     if (senhaCorretaProf && senhaDigitada !== senhaCorretaProf) {
       setErroLogin("❌ Senha incorreta. Digite exatamente a senha fornecida pelo administrador do hospital.");
       return;
+    }
+
+    // Sincroniza a unidade hospitalar vinculada ao profissional
+    if (profEncontrado.hospital_nome || profEncontrado.hospital_id) {
+      localStorage.setItem("axion_hospital_ativo", JSON.stringify({
+        nome: profEncontrado.hospital_nome,
+        id: profEncontrado.hospital_id
+      }));
     }
 
     if (profEncontrado.primeiro_acesso || profEncontrado.primeiroAcesso) {
@@ -199,7 +223,13 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    onEntrarMedico({ nome: profEncontrado?.nome || termo.split("@")[0], cargo: profEncontrado?.cargo || "medico", role: "medico" });
+    onEntrarMedico({
+      nome: profEncontrado?.nome || termo.split("@")[0],
+      cargo: profEncontrado?.cargo || "medico",
+      hospital: profEncontrado?.hospital_nome,
+      hospital_id: profEncontrado?.hospital_id,
+      role: "medico"
+    });
   };
 
   const salvarNovaSenhaPrimeiroAcesso = async () => {
@@ -249,11 +279,24 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
     const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
     if (profPrimeiroAcesso?.email) {
-      todosProfs[profPrimeiroAcesso.email] = profAtualizado;
+      todosProfs[profPrimeiroAcesso.email.toLowerCase().trim()] = profAtualizado;
       localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
     }
 
-    onEntrarMedico({ nome: profPrimeiroAcesso?.nome || "Profissional", cargo: profPrimeiroAcesso?.cargo || "medico", role: "medico" });
+    if (profPrimeiroAcesso?.hospital_nome || profPrimeiroAcesso?.hospital_id) {
+      localStorage.setItem("axion_hospital_ativo", JSON.stringify({
+        nome: profPrimeiroAcesso.hospital_nome,
+        id: profPrimeiroAcesso.hospital_id
+      }));
+    }
+
+    onEntrarMedico({
+      nome: profPrimeiroAcesso?.nome || "Profissional",
+      cargo: profPrimeiroAcesso?.cargo || "medico",
+      hospital: profPrimeiroAcesso?.hospital_nome,
+      hospital_id: profPrimeiroAcesso?.hospital_id,
+      role: "medico"
+    });
   };
 
   if (perfilCriado) return <TelaCodigoGerado perfil={perfilCriado} onContinuar={() => onEntrar(perfilCriado)} />;
@@ -309,7 +352,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 20px" }}>
-      {/* Logotipo Limpo (Sem a frase 'PLATAFORMA SAAS MULTI-TENANT') */}
+      {/* Logotipo Limpo */}
       <div style={{ textAlign: "center", marginBottom: 24, animation: "rise 0.5s ease both" }}>
         <div style={{ animation: "pulse 2s ease infinite", filter: "drop-shadow(0 0 24px rgba(0,201,177,0.5))", marginBottom: 10 }}>
           <svg width="64" height="64" viewBox="0 0 80 80">

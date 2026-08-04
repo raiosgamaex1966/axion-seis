@@ -7,7 +7,6 @@ import { PatientService, supabase } from '../services/supabaseClient';
 export function AdminHospital({ onBack, onSair, hospital }) {
   const [tab, setTab] = useState("equipe"); // equipe | lista_pacientes | cadastrar_prof | cadastrar_paciente
 
-  // Garantir que o nome do hospital seja sempre o nome da unidade e NUNCA o e-mail do administrador
   const nomeHospital = (hospital?.nome && !hospital.nome.includes("@"))
     ? hospital.nome
     : (hospital?.nome_unidade || "Hospital Doutor Luiz Sampa");
@@ -48,8 +47,8 @@ export function AdminHospital({ onBack, onSair, hospital }) {
     }
 
     if (lista.length === 0) {
-      const todosProfs = JSON.parse(localStorage.getItem(`axion_profissionais_${hospital?.id || nomeHospital}`) || '[]');
-      lista = todosProfs;
+      const todosGlobais = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
+      lista = Object.values(todosGlobais).filter(p => p.hospital_nome === nomeHospital || p.hospital_id === hospital?.id);
     }
 
     setEquipe(lista);
@@ -71,12 +70,14 @@ export function AdminHospital({ onBack, onSair, hospital }) {
   const cadastrarProfissional = async () => {
     if (!novoProf.nome || !novoProf.email) return;
 
+    const emailLimpo = novoProf.email.toLowerCase().trim();
+
     const prof = {
       id: Date.now().toString(),
       hospital_id: hospital?.id || null,
       hospital_nome: nomeHospital,
       nome: novoProf.nome.trim(),
-      email: novoProf.email.toLowerCase().trim(),
+      email: emailLimpo,
       registro_profissional: novoProf.registro,
       cargo: novoProf.cargo,
       especialidade: novoProf.especialidade || "Radioterapia Oncologia",
@@ -91,10 +92,10 @@ export function AdminHospital({ onBack, onSair, hospital }) {
       } catch (e) {}
     }
 
-    const key = `axion_profissionais_${hospital?.id || nomeHospital}`;
-    const existentes = JSON.parse(localStorage.getItem(key) || '[]');
-    existentes.unshift(prof);
-    localStorage.setItem(key, JSON.stringify(existentes));
+    // Salva no Dicionario Global do LocalStorage para permitir login imediato em TelaAcesso
+    const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
+    todosProfs[emailLimpo] = prof;
+    localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
 
     setEquipe(prev => [prof, ...prev]);
     setProfCadastrado(prof);
@@ -288,12 +289,12 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO *</label>
-                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Roberto Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Chico César" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>E-MAIL PROFISSIONAL (LOGIN) *</label>
-                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="medico@hospital.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="chicocesar@gmail.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "10px 14px", color: C.text, fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 12 }}>

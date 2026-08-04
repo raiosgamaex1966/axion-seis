@@ -12,6 +12,16 @@ export const supabase = supabaseConfigured
 
 // Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais
 export const PatientService = {
+  // Purga registros fictícios de testes do Supabase e LocalStorage
+  async purgeMockPatients() {
+    if (supabaseConfigured) {
+      try {
+        await supabase.from('pacientes').delete().in('codigo', ['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966']);
+      } catch (e) {}
+    }
+    localStorage.removeItem('axion_pacientes');
+  },
+
   // Login pelo código único
   async loginByCode(codigoInput) {
     const alvo = normalizarCodigo(codigoInput);
@@ -68,7 +78,7 @@ export const PatientService = {
     return perfil;
   },
 
-  // Listar pacientes unificando Supabase + LocalStorage (Sem perder nenhum paciente)
+  // Listar pacientes unificando Supabase + LocalStorage (Filtrando registros de teste)
   async listarPacientes() {
     let mapaPacientes = {};
 
@@ -76,7 +86,9 @@ export const PatientService = {
     try {
       const todosLocais = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
       Object.values(todosLocais).forEach(p => {
-        if (p.codigo) mapaPacientes[p.codigo] = p;
+        if (p.codigo && !['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966'].includes(p.codigo)) {
+          mapaPacientes[p.codigo] = p;
+        }
       });
     } catch (e) {}
 
@@ -90,83 +102,25 @@ export const PatientService = {
 
         if (data && !error) {
           data.forEach(p => {
-            mapaPacientes[p.codigo] = {
-              ...mapaPacientes[p.codigo],
-              ...p,
-              nome: p.nome,
-              codigo: p.codigo,
-              tipo: p.tipo_tratamento || p.tipo,
-              sessaoAtual: p.sessao_atual,
-              totalSessoes: p.total_sessoes
-            };
+            // Ignora os codigos ficticios de testes antigos
+            if (p.codigo && !['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966'].includes(p.codigo)) {
+              mapaPacientes[p.codigo] = {
+                ...mapaPacientes[p.codigo],
+                ...p,
+                nome: p.nome,
+                codigo: p.codigo,
+                tipo: p.tipo_tratamento || p.tipo,
+                sessaoAtual: p.sessao_atual,
+                totalSessoes: p.total_sessoes
+              };
+            }
           });
         }
-      } catch (e) {}
-    }
-
-    return Object.values(mapaPacientes);
-  },
-
-  // Registrar diário de sintomas
-  async registrarSintomas(codigo, { fadiga, dor, nausea, apetite, ansiedade, sono, observacoes }) {
-    if (supabaseConfigured) {
-      try {
-        await supabase.from('sintomas_registrados').insert({
-          paciente_codigo: codigo,
-          nivel_fadiga: fadiga,
-          nivel_dor: dor,
-          humor: ansiedade > 5 ? 'Ansioso' : 'Confiante',
-          observacoes: observacoes || `Sintomas registrados pelo paciente (Fadiga ${fadiga}/10, Dor ${dor}/10)`
-        });
-      } catch (e) {
-        console.warn('Sintomas Supabase insert failed:', e);
+      } catch (err) {
+        console.warn('Supabase paciente list fallback:', err);
       }
     }
 
-    const key = `axion_sintomas_${codigo}`;
-    const existentes = JSON.parse(localStorage.getItem(key) || '[]');
-    existentes.unshift({ data: new Date().toLocaleDateString('pt-BR'), fadiga, dor, nausea, apetite, ansiedade, sono, observacoes });
-    localStorage.setItem(key, JSON.stringify(existentes));
-  },
-
-  // Buscar mensagens do chat médico-paciente
-  async getMensagensChat(codigo) {
-    if (supabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('mensagens_chat')
-          .select('*')
-          .eq('paciente_codigo', codigo)
-          .order('criado_em', { ascending: true });
-
-        if (data && !error) return data;
-      } catch (e) {}
-    }
-
-    const key = `axion_chat_${codigo}`;
-    return JSON.parse(localStorage.getItem(key) || '[]');
-  },
-
-  // Enviar mensagem no chat médico-paciente
-  async enviarMensagemChat(codigo, remetenteTipo, remetenteNome, mensagem) {
-    if (supabaseConfigured) {
-      try {
-        const { data } = await supabase.from('mensagens_chat').insert({
-          paciente_codigo: codigo,
-          remetente_tipo: remetenteTipo,
-          remetente_nome: remetenteNome,
-          mensagem: mensagem
-        }).select();
-
-        if (data) return data[0];
-      } catch (e) {}
-    }
-
-    const key = `axion_chat_${codigo}`;
-    const existentes = JSON.parse(localStorage.getItem(key) || '[]');
-    const nova = { id: Date.now(), paciente_codigo: codigo, remetente_tipo: remetenteTipo, remetente_nome: remetenteNome, mensagem, criado_em: new Date().toISOString() };
-    existentes.push(nova);
-    localStorage.setItem(key, JSON.stringify(existentes));
-    return nova;
+    return Object.values(mapaPacientes);
   }
 };
