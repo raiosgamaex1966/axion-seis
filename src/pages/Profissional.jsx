@@ -115,7 +115,9 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     setSalvando(true);
 
     const rawAtual = pacienteSelecionado.sessaoAtual !== undefined ? pacienteSelecionado.sessaoAtual : (pacienteSelecionado.sessao_atual !== undefined ? pacienteSelecionado.sessao_atual : 0);
-    const atual = Number.isInteger(parseInt(rawAtual)) ? parseInt(rawAtual) : 0;
+    const sessaoBase = Number.isInteger(parseInt(rawAtual)) ? parseInt(rawAtual) : 0;
+    const sessoesTecnicas = (pacienteSelecionado?.historico_tecnico && Array.isArray(pacienteSelecionado.historico_tecnico)) ? pacienteSelecionado.historico_tecnico.length : 0;
+    const atual = Math.max(sessaoBase, sessoesTecnicas);
     
     const rawTotal = pacienteSelecionado.totalSessoes !== undefined ? pacienteSelecionado.totalSessoes : (pacienteSelecionado.total_sessoes !== undefined ? pacienteSelecionado.total_sessoes : 30);
     const total = Number.isInteger(parseInt(rawTotal)) && parseInt(rawTotal) > 0 ? parseInt(rawTotal) : 30;
@@ -253,10 +255,13 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
               <div><span style={{ color: C.muted }}>Hospital:</span> <strong>{pacienteSelecionado.hospital || "Hospital AXION"}</strong></div>
             </div>
 
-            {/* BARRA DE PROGRESSO DE SESSÕES */}
+            {/* BARRA DE PROGRESSO DE SESSÕES (Sincronizada estritamente com o historico técnico) */}
             {(() => {
               const rawA = pacienteSelecionado.sessaoAtual !== undefined ? pacienteSelecionado.sessaoAtual : (pacienteSelecionado.sessao_atual !== undefined ? pacienteSelecionado.sessao_atual : 0);
-              const sAtual = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+              const sessaoBase = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+              const sessoesTecnicas = (pacienteSelecionado?.historico_tecnico && Array.isArray(pacienteSelecionado.historico_tecnico)) ? pacienteSelecionado.historico_tecnico.length : 0;
+              const sAtual = Math.max(sessaoBase, sessoesTecnicas);
+
               const rawT = pacienteSelecionado.totalSessoes !== undefined ? pacienteSelecionado.totalSessoes : (pacienteSelecionado.total_sessoes !== undefined ? pacienteSelecionado.total_sessoes : 30);
               const sTotal = Number.isInteger(parseInt(rawT)) && parseInt(rawT) > 0 ? parseInt(rawT) : 30;
               const pct = Math.min(100, Math.round((sAtual / sTotal) * 100));
@@ -289,9 +294,18 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
                   <input value={obsTecnica} onChange={e => setObsTecnica(e.target.value)} placeholder="Ex: Alinhamento laser 100% OK, sem intercorrências..." style={{ width: "100%", background: C.navy, border: `1px solid ${C.navyM}`, borderRadius: 10, padding: "10px", color: C.text, fontSize: 12 }} />
                 </div>
 
-                <button onClick={registrarBaixaTecnico} disabled={salvando} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
-                  {salvando ? "Salvando..." : `✅ Confirmar Execução & Dar Baixa na Sessão #${(parseInt(pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0)) + 1}`}
-                </button>
+                {(() => {
+                  const rawA = pacienteSelecionado.sessaoAtual !== undefined ? pacienteSelecionado.sessaoAtual : (pacienteSelecionado.sessao_atual !== undefined ? pacienteSelecionado.sessao_atual : 0);
+                  const sBase = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+                  const sTec = (pacienteSelecionado?.historico_tecnico && Array.isArray(pacienteSelecionado.historico_tecnico)) ? pacienteSelecionado.historico_tecnico.length : 0;
+                  const proxSessao = Math.max(sBase, sTec) + 1;
+
+                  return (
+                    <button onClick={registrarBaixaTecnico} disabled={salvando} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
+                      {salvando ? "Salvando..." : `✅ Confirmar Execução & Dar Baixa na Sessão #${proxSessao}`}
+                    </button>
+                  );
+                })()}
               </div>
             )}
 
@@ -437,7 +451,10 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
         ) : (
           pacientes.map((p, i) => {
             const rawA = p.sessaoAtual !== undefined ? p.sessaoAtual : (p.sessao_atual !== undefined ? p.sessao_atual : 0);
-            const sAtual = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+            const sBase = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+            const sTec = (p?.historico_tecnico && Array.isArray(p.historico_tecnico)) ? p.historico_tecnico.length : 0;
+            const sAtual = Math.max(sBase, sTec);
+
             const rawT = p.totalSessoes !== undefined ? p.totalSessoes : (p.total_sessoes !== undefined ? p.total_sessoes : 30);
             const sTotal = Number.isInteger(parseInt(rawT)) && parseInt(rawT) > 0 ? parseInt(rawT) : 30;
 
