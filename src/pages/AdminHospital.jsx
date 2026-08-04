@@ -211,15 +211,18 @@ export function AdminHospital({ onBack, onSair, hospital }) {
               equipe.map((p, idx) => {
                 const infoCargo = cargoBadge[p.cargo] || cargoBadge.medico;
                 return (
-                  <div key={idx} style={{ background: C.navyL, border: `1px solid ${infoCargo.bg}33`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff" }}>{p.nome}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>Registro: {p.registro_profissional || "Ativo"} — {p.email}</div>
+                  <div key={idx} style={{ background: C.navyL, border: `1px solid ${infoCargo.bg}33`, borderRadius: 16, padding: "14px 16px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff", marginBottom: 2 }}>{p.nome}</div>
+                        <div style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          Registro: {p.registro_profissional || "Ativo"} — {p.email}
+                        </div>
                       </div>
-                      <span style={{ background: `${infoCargo.bg}22`, color: infoCargo.bg, border: `1px solid ${infoCargo.bg}55`, borderRadius: 99, padding: "4px 10px", fontSize: 10, fontWeight: 800 }}>
-                        {infoCargo.emoji} {infoCargo.label}
-                      </span>
+                      <div style={{ background: `${infoCargo.bg}18`, color: infoCargo.bg, border: `1.5px solid ${infoCargo.bg}55`, borderRadius: 99, padding: "6px 12px", fontSize: 11, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap", flexShrink: 0 }}>
+                        <span>{infoCargo.emoji}</span>
+                        <span>{infoCargo.label}</span>
+                      </div>
                     </div>
                   </div>
                 );
