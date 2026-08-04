@@ -8,6 +8,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
   const [buscaCodigo, setBuscaCodigo] = useState("");
   const [pacientes, setPacientes] = useState([]);
   const [pacienteSelecionado, setPacienteSelecionado] = useState(null);
+  const [historicoSintomasPaciente, setHistoricoSintomasPaciente] = useState([]);
   const [buscando, setBuscando] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [unidadeProfissional, setUnidadeProfissional] = useState("");
@@ -69,6 +70,15 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     }
   };
 
+  const selecionarPaciente = (p) => {
+    setPacienteSelecionado(p);
+    if (p?.codigo) {
+      const keyHist = `axion_sintomas_${p.codigo}`;
+      const hist = JSON.parse(localStorage.getItem(keyHist) || '[]');
+      setHistoricoSintomasPaciente(hist);
+    }
+  };
+
   const buscar = async () => {
     if (!buscaCodigo.trim()) return;
     setBuscando(true);
@@ -76,7 +86,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     
     const res = await PatientService.loginByCode(buscaCodigo);
     if (res.success && res.perfil) {
-      setPacienteSelecionado(res.perfil);
+      selecionarPaciente(res.perfil);
       setStatusMsg(`✅ Paciente ${res.perfil.nome} localizado!`);
       setBuscando(false);
       return;
@@ -86,7 +96,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
       try {
         const { data } = await supabase.from('pacientes').select('*').ilike('nome', `%${buscaCodigo.trim()}%`).limit(1);
         if (data && data.length > 0) {
-          setPacienteSelecionado(data[0]);
+          selecionarPaciente(data[0]);
           setStatusMsg(`✅ Paciente ${data[0].nome} localizado pelo nome!`);
           setBuscando(false);
           return;
@@ -104,8 +114,11 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     if (!pacienteSelecionado) return;
     setSalvando(true);
 
-    const atual = parseInt(pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0);
-    const total = parseInt(pacienteSelecionado.totalSessoes || pacienteSelecionado.total_sessoes || 30);
+    const rawAtual = pacienteSelecionado.sessaoAtual !== undefined ? pacienteSelecionado.sessaoAtual : (pacienteSelecionado.sessao_atual !== undefined ? pacienteSelecionado.sessao_atual : 0);
+    const atual = Number.isInteger(parseInt(rawAtual)) ? parseInt(rawAtual) : 0;
+    
+    const rawTotal = pacienteSelecionado.totalSessoes !== undefined ? pacienteSelecionado.totalSessoes : (pacienteSelecionado.total_sessoes !== undefined ? pacienteSelecionado.total_sessoes : 30);
+    const total = Number.isInteger(parseInt(rawTotal)) && parseInt(rawTotal) > 0 ? parseInt(rawTotal) : 30;
 
     if (atual >= total) {
       setStatusMsg("⚠️ Este paciente já concluiu todas as sessões do tratamento!");
@@ -124,7 +137,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     };
 
     const atualizado = await PatientService.adicionarRegistroTecnico(pacienteSelecionado, registro, novaSessao);
-    setPacienteSelecionado(atualizado);
+    selecionarPaciente(atualizado);
     setObsTecnica("");
     setStatusMsg(`🎉 Sessão #${novaSessao} executada e baixada com sucesso no prontuário!`);
     setSalvando(false);
@@ -145,7 +158,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     };
 
     const atualizado = await PatientService.adicionarEvolucaoEnfermagem(pacienteSelecionado, registro);
-    setPacienteSelecionado(atualizado);
+    selecionarPaciente(atualizado);
     setEvolucaoEnfermagem("");
     setStatusMsg("🩺 Evolução de Enfermagem gravada com sucesso no prontuário!");
     setSalvando(false);
@@ -165,7 +178,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     };
 
     const atualizado = await PatientService.adicionarCondutaMedica(pacienteSelecionado, registro);
-    setPacienteSelecionado(atualizado);
+    selecionarPaciente(atualizado);
     setCondutaMedica("");
     setStatusMsg("👨‍⚕️ Conduta Médica gravada no prontuário multidisciplinar!");
     setSalvando(false);
@@ -241,15 +254,25 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
             </div>
 
             {/* BARRA DE PROGRESSO DE SESSÕES */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-                <span>Progresso da Radioterapia</span>
-                <span style={{ color: C.teal }}>{pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0} de {pacienteSelecionado.totalSessoes || pacienteSelecionado.total_sessoes || 30} Sessões</span>
-              </div>
-              <div style={{ height: 10, background: C.navyM, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: `linear-gradient(90deg,${C.teal},${C.blue})`, width: `${Math.min(100, (((pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0) / (pacienteSelecionado.totalSessoes || pacienteSelecionado.total_sessoes || 30)) * 100))}%`, transition: "all 0.5s ease" }} />
-              </div>
-            </div>
+            {(() => {
+              const rawA = pacienteSelecionado.sessaoAtual !== undefined ? pacienteSelecionado.sessaoAtual : (pacienteSelecionado.sessao_atual !== undefined ? pacienteSelecionado.sessao_atual : 0);
+              const sAtual = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+              const rawT = pacienteSelecionado.totalSessoes !== undefined ? pacienteSelecionado.totalSessoes : (pacienteSelecionado.total_sessoes !== undefined ? pacienteSelecionado.total_sessoes : 30);
+              const sTotal = Number.isInteger(parseInt(rawT)) && parseInt(rawT) > 0 ? parseInt(rawT) : 30;
+              const pct = Math.min(100, Math.round((sAtual / sTotal) * 100));
+
+              return (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+                    <span>Progresso da Radioterapia</span>
+                    <span style={{ color: C.teal }}>{sAtual} de {sTotal} Sessões ({pct}%)</span>
+                  </div>
+                  <div style={{ height: 10, background: C.navyM, borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: "100%", background: `linear-gradient(90deg,${C.teal},${C.blue})`, width: `${pct}%`, transition: "all 0.5s ease" }} />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* SEÇÃO 1: FICHA TÉCNICA (EXCLUSIVA PARA TÉCNICOS EM RADIOTERAPIA) */}
             {cargo === "tecnico" && (
@@ -267,7 +290,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
                 </div>
 
                 <button onClick={registrarBaixaTecnico} disabled={salvando} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 900, fontSize: 14 }}>
-                  {salvando ? "Salvando..." : `✅ Confirmar Execução & Dar Baixa na Sessão #${parseInt(pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0) + 1}`}
+                  {salvando ? "Salvando..." : `✅ Confirmar Execução & Dar Baixa na Sessão #${(parseInt(pacienteSelecionado.sessaoAtual || pacienteSelecionado.sessao_atual || 0)) + 1}`}
                 </button>
               </div>
             )}
@@ -317,6 +340,31 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
             {/* SEÇÃO 4: HISTÓRICO MULTIDISCIPLINAR CONSOLIDADO (VISÍVEL NO PRONTUÁRIO) */}
             <div style={{ background: C.navyM, borderRadius: 18, padding: "16px", marginTop: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: C.gold, marginBottom: 12 }}>📋 Histórico Multidisciplinar Unificado (LGPD / Prontuário)</div>
+
+              {/* DIÁRIO DE SINTOMAS RELATADOS PELO PACIENTE */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, color: C.teal, fontWeight: 800, letterSpacing: 1, marginBottom: 6 }}>📊 DIÁRIO DE SINTOMAS RELATADOS PELO PACIENTE</div>
+                {historicoSintomasPaciente.length === 0 ? (
+                  <div style={{ fontSize: 11, color: C.muted }}>Nenhum sintoma registrado pelo paciente ainda.</div>
+                ) : (
+                  historicoSintomasPaciente.map((h, idx) => (
+                    <div key={idx} style={{ background: C.navy, border: `1px solid ${C.teal}33`, borderRadius: 12, padding: "10px 12px", marginBottom: 6, fontSize: 11 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, color: C.teal, marginBottom: 4 }}>
+                        <span>📊 Sintomas do Dia</span>
+                        <span>{h.data} às {h.hora}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, textAlign: "center", fontSize: 10 }}>
+                        <span style={{ color: C.orange }}>Fadiga: {h.sintomas?.fadiga}/10</span>
+                        <span style={{ color: C.pink }}>Dor: {h.sintomas?.dor}/10</span>
+                        <span style={{ color: C.purple }}>Náusea: {h.sintomas?.nausea}/10</span>
+                        <span style={{ color: C.gold }}>Apetite: {h.sintomas?.apetite}/10</span>
+                        <span style={{ color: C.blue }}>Ansiedade: {h.sintomas?.ansiedade}/10</span>
+                        <span style={{ color: C.teal }}>Sono: {h.sintomas?.sono}/10</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
 
               {/* Evoluções de Enfermagem */}
               <div style={{ marginBottom: 14 }}>
@@ -387,20 +435,27 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
             <div style={{ fontSize: 12, color: C.muted }}>Os pacientes cadastrados pelo Administrador do Hospital aparecerão automaticamente aqui.</div>
           </div>
         ) : (
-          pacientes.map((p, i) => (
-            <div key={i} onClick={() => setPacienteSelecionado(p)} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10, cursor: "pointer", transition: "all 0.2s" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
-                  <div style={{ fontSize: 11, color: C.muted }}>{p.tipo || p.tipo_tratamento} — {p.sessao_atual || p.sessaoAtual || 0}/{p.total_sessoes || p.totalSessoes || 30} sessões</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 12, color: C.teal, fontWeight: 800 }}>{p.codigo}</div>
-                  <div style={{ fontSize: 10, color: cargoBadge[cargo] || C.blue, fontWeight: 700 }}>Abrir Prontuário →</div>
+          pacientes.map((p, i) => {
+            const rawA = p.sessaoAtual !== undefined ? p.sessaoAtual : (p.sessao_atual !== undefined ? p.sessao_atual : 0);
+            const sAtual = Number.isInteger(parseInt(rawA)) ? parseInt(rawA) : 0;
+            const rawT = p.totalSessoes !== undefined ? p.totalSessoes : (p.total_sessoes !== undefined ? p.total_sessoes : 30);
+            const sTotal = Number.isInteger(parseInt(rawT)) && parseInt(rawT) > 0 ? parseInt(rawT) : 30;
+
+            return (
+              <div key={i} onClick={() => selecionarPaciente(p)} style={{ background: C.navyL, border: `1px solid ${C.navyM}`, borderRadius: 16, padding: "16px", marginBottom: 10, cursor: "pointer", transition: "all 0.2s" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{p.nome}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{p.tipo || p.tipo_tratamento} — {sAtual}/{sTotal} sessões</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 12, color: C.teal, fontWeight: 800 }}>{p.codigo}</div>
+                    <div style={{ fontSize: 10, color: cargoBadge[cargo] || C.blue, fontWeight: 700 }}>Abrir Prontuário →</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
