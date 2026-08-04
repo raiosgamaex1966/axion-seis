@@ -12,14 +12,17 @@ export function Paciente({ onBack, perfil, onSair }) {
   const [salvando, setSalvando] = useState(false);
   const [expandSym, setExpandSym] = useState(null);
 
-  // Correção do Bug do zero falsy (0 || 8 era 8):
+  // Leitura do progresso real (Prioriza o numero de sessoes registradas no historico tecnico)
   const rawSessao = perfil?.sessaoAtual !== undefined ? perfil.sessaoAtual : (perfil?.sessao_atual !== undefined ? perfil.sessao_atual : 0);
-  const sessaoAtual = Number.isInteger(parseInt(rawSessao)) ? parseInt(rawSessao) : 0;
+  const sessaoBase = Number.isInteger(parseInt(rawSessao)) ? parseInt(rawSessao) : 0;
+  const sessoesTecnicas = (perfil?.historico_tecnico && Array.isArray(perfil.historico_tecnico)) ? perfil.historico_tecnico.length : 0;
+  
+  const sessaoAtual = Math.max(sessaoBase, sessoesTecnicas);
   
   const rawTotal = perfil?.totalSessoes !== undefined ? perfil.totalSessoes : (perfil?.total_sessoes !== undefined ? perfil.total_sessoes : 30);
   const totalSessoes = Number.isInteger(parseInt(rawTotal)) && parseInt(rawTotal) > 0 ? parseInt(rawTotal) : 30;
 
-  const progPct = Math.round((sessaoAtual / totalSessoes) * 100);
+  const progPct = Math.min(100, Math.round((sessaoAtual / totalSessoes) * 100));
   const sessions = Array.from({ length: totalSessoes }, (_, i) => ({
     n: i + 1,
     done: i < sessaoAtual,
@@ -93,7 +96,7 @@ export function Paciente({ onBack, perfil, onSair }) {
         <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 14, padding: "12px 14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11, color: C.muted }}>{perfil?.tipo || perfil?.tipo_tratamento || "Radioterapia"} — {perfil?.hospital || "Hospital AXION"}</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.teal }}>{sessaoAtual}/{totalSessoes} sessões</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.teal }}>{sessaoAtual}/{totalSessoes} sessões ({progPct}%)</span>
           </div>
           <div style={{ height: 6, background: C.navyM, borderRadius: 99, overflow: "hidden" }}>
             <div style={{ width: `${progPct}%`, height: "100%", background: `linear-gradient(90deg,${C.teal},${C.blue})`, borderRadius: 99 }} />
