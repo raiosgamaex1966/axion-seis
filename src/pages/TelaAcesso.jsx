@@ -30,6 +30,8 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
 
   const [profPrimeiroAcesso, setProfPrimeiroAcesso] = useState(null);
   const [hospitalPrimeiroAcesso, setHospitalPrimeiroAcesso] = useState(null);
+  
+  const [mostrarTermos, setMostrarTermos] = useState(false);
 
   const iF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -592,6 +594,45 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* FOOTER LGPD */}
+      {!mostrarTermos && (
+        <div style={{ marginTop: 30, textAlign: "center" }}>
+          <button onClick={() => setMostrarTermos(true)} style={{ background: "none", border: "none", color: C.muted, fontSize: 12, textDecoration: "underline", cursor: "pointer", opacity: 0.8 }}>
+            Política de Privacidade & Termos de Uso (LGPD)
+          </button>
+        </div>
+      )}
+
+      {/* MODAL TERMOS LGPD */}
+      {mostrarTermos && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
+          <div style={{ background: C.navy, border: `1px solid ${C.teal}44`, borderRadius: 16, padding: 24, width: "100%", maxWidth: 500, maxHeight: "85vh", overflowY: "auto", position: "relative" }}>
+            <button onClick={() => setMostrarTermos(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", fontSize: 20, color: C.muted, cursor: "pointer" }}>✕</button>
+            <h2 style={{ color: C.teal, fontSize: 18, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>🛡️</span> Política de Privacidade (LGPD)
+            </h2>
+            <div style={{ color: C.text, fontSize: 13, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 12 }}>
+              <p>Bem-vindo ao <strong>AXION</strong>. A sua privacidade e a segurança dos seus dados sensíveis são a nossa maior prioridade, em total conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).</p>
+              
+              <div><strong style={{color: C.purple}}>1. Finalidade do Tratamento</strong><br/>
+              Coletamos dados de saúde estritamente para acompanhamento clínico radioterápico e suporte multidisciplinar. Os dados não são utilizados para nenhum outro fim. (Art. 7º e 11º da LGPD)</div>
+              
+              <div><strong style={{color: C.purple}}>2. Armazenamento e Segurança</strong><br/>
+              Utilizamos criptografia de ponta (AES-256 e TLS 1.3) para proteger seus dados. O acesso é restrito apenas aos profissionais de saúde diretamente vinculados ao seu tratamento, utilizando Controle de Acesso Baseado em Papéis (RBAC).</div>
+              
+              <div><strong style={{color: C.purple}}>3. Compartilhamento</strong><br/>
+              Seus dados nunca serão vendidos ou compartilhados com terceiros não autorizados. Eles são compartilhados apenas dentro da unidade hospitalar que realiza seu tratamento.</div>
+              
+              <div><strong style={{color: C.purple}}>4. Seus Direitos (Art. 18 LGPD)</strong><br/>
+              Como titular dos dados, você tem o direito de solicitar a qualquer momento a visualização, alteração, portabilidade ou a exclusão do seu prontuário junto ao Administrador da sua unidade hospitalar.</div>
+            </div>
+            <button onClick={() => setMostrarTermos(false)} style={{ marginTop: 24, width: "100%", padding: "12px", borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.teal},${C.blue})`, color: C.navy, fontWeight: 800, fontSize: 14 }}>
+              Ciente e De Acordo
+            </button>
+          </div>
         </div>
       )}
     </div>
