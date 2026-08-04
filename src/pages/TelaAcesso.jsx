@@ -146,14 +146,13 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
         return;
       }
 
-      // Validação estrita LGPD da senha digitada (Provisória ou Definitiva)
+      // Validação estrita LGPD da senha digitada
       const senhaCorreta = hospEncontrado.senha_provisoria || hospEncontrado.senha;
       if (senhaCorreta && senhaDigitada !== senhaCorreta) {
         setErroLogin("❌ Senha incorreta. Digite exatamente a senha fornecida pelo Super Admin.");
         return;
       }
 
-      // Se a senha bateu E for o Primeiro Acesso, força a troca de senha
       if (hospEncontrado.primeiro_acesso || hospEncontrado.primeiroAcesso) {
         setHospitalPrimeiroAcesso(hospEncontrado);
         setModo("trocar_senha_admin");
@@ -168,7 +167,6 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
     // 3. LOGIN DOS PROFISSIONAIS DA SAÚDE (Médicos, Enfermeiros, Técnicos)
     let profEncontrado = null;
 
-    // Busca no Supabase em primeiro lugar
     if (supabase) {
       try {
         const { data } = await supabase.from('profissionais').select('*').ilike('email', termo).limit(1);
@@ -176,13 +174,11 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       } catch (e) {}
     }
 
-    // Busca no dicionario global axion_profissionais
     if (!profEncontrado) {
       const todosProfs = JSON.parse(localStorage.getItem('axion_profissionais') || '{}');
       if (todosProfs[termo]) profEncontrado = todosProfs[termo];
     }
 
-    // Busca de segurança em chaves locais por hospital
     if (!profEncontrado) {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -201,14 +197,15 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    // Validação estrita LGPD da senha do profissional (Provisória ou Definitiva)
+    // Validação estrita LGPD da senha do profissional
     const senhaCorretaProf = profEncontrado.senha_provisoria || profEncontrado.senha;
     if (senhaCorretaProf && senhaDigitada !== senhaCorretaProf) {
       setErroLogin("❌ Senha incorreta. Digite exatamente a senha fornecida pelo administrador do hospital.");
       return;
     }
 
-    // Sincroniza a unidade hospitalar vinculada ao profissional
+    // Grava o profissional exatamente conectado no LocalStorage para que Profissional.jsx identifique seu cargo real
+    localStorage.setItem("axion_profissional_logado", JSON.stringify(profEncontrado));
     if (profEncontrado.hospital_nome || profEncontrado.hospital_id) {
       localStorage.setItem("axion_hospital_ativo", JSON.stringify({
         nome: profEncontrado.hospital_nome,
@@ -223,13 +220,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       return;
     }
 
-    onEntrarMedico({
-      nome: profEncontrado?.nome || termo.split("@")[0],
-      cargo: profEncontrado?.cargo || "medico",
-      hospital: profEncontrado?.hospital_nome,
-      hospital_id: profEncontrado?.hospital_id,
-      role: "medico"
-    });
+    onEntrarMedico(profEncontrado);
   };
 
   const salvarNovaSenhaPrimeiroAcesso = async () => {
@@ -283,6 +274,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       localStorage.setItem('axion_profissionais', JSON.stringify(todosProfs));
     }
 
+    localStorage.setItem("axion_profissional_logado", JSON.stringify(profAtualizado));
     if (profPrimeiroAcesso?.hospital_nome || profPrimeiroAcesso?.hospital_id) {
       localStorage.setItem("axion_hospital_ativo", JSON.stringify({
         nome: profPrimeiroAcesso.hospital_nome,
@@ -290,13 +282,7 @@ export function TelaAcesso({ onEntrar, onEntrarSuperAdmin, onEntrarAdminHospital
       }));
     }
 
-    onEntrarMedico({
-      nome: profPrimeiroAcesso?.nome || "Profissional",
-      cargo: profPrimeiroAcesso?.cargo || "medico",
-      hospital: profPrimeiroAcesso?.hospital_nome,
-      hospital_id: profPrimeiroAcesso?.hospital_id,
-      role: "medico"
-    });
+    onEntrarMedico(profAtualizado);
   };
 
   if (perfilCriado) return <TelaCodigoGerado perfil={perfilCriado} onContinuar={() => onEntrar(perfilCriado)} />;

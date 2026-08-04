@@ -51,77 +51,122 @@ export const PatientService = {
     return { success: false, error: 'Código não encontrado.' };
   },
 
-  // Salvar ou atualizar dados do perfil do paciente
+  // Salvar ou atualizar dados do perfil do paciente com mesclagem segura
   async savePatient(perfil) {
+    if (!perfil || !perfil.codigo) return perfil;
+
+    // 1. Atualiza e mescla no LocalStorage primeiro para garantia imediata
+    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+    const existente = todos[perfil.codigo] || {};
+    const unificado = {
+      ...existente,
+      ...perfil,
+      codigo: perfil.codigo,
+      nome: perfil.nome || existente.nome,
+      idade: perfil.idade || existente.idade,
+      sexo: perfil.sexo || existente.sexo,
+      tipo: perfil.tipo || perfil.tipo_tratamento || existente.tipo,
+      hospital: perfil.hospital || existente.hospital,
+      hospital_id: perfil.hospital_id || existente.hospital_id,
+      medico: perfil.medico || perfil.medico_responsavel || existente.medico,
+      totalSessoes: perfil.totalSessoes || perfil.total_sessoes || existente.totalSessoes || 30,
+      sessaoAtual: perfil.sessaoAtual !== undefined ? perfil.sessaoAtual : (perfil.sessao_atual !== undefined ? perfil.sessao_atual : (existente.sessaoAtual || 0)),
+      historico_enfermagem: perfil.historico_enfermagem || existente.historico_enfermagem || [],
+      historico_tecnico: perfil.historico_tecnico || existente.historico_tecnico || [],
+      historico_medico: perfil.historico_medico || existente.historico_medico || []
+    };
+
+    todos[perfil.codigo] = unificado;
+    localStorage.setItem('axion_pacientes', JSON.stringify(todos));
+
+    // 2. Persiste no Supabase em tempo real com tratamento de erro
     if (supabaseConfigured) {
       try {
-        await supabase.from('pacientes').upsert({
-          codigo: perfil.codigo,
-          nome: perfil.nome,
-          idade: parseInt(perfil.idade) || null,
-          sexo: perfil.sexo,
-          tipo_tratamento: perfil.tipo || perfil.tipo_tratamento,
-          medico_responsavel: perfil.medico || perfil.medico_responsavel,
-          hospital: perfil.hospital || 'Hospital de Câncer AXION',
-          total_sessoes: parseInt(perfil.totalSessoes || perfil.total_sessoes) || 30,
-          sessao_atual: parseInt(perfil.sessaoAtual || perfil.sessao_atual) || 0,
-          historico_enfermagem: perfil.historico_enfermagem || [],
-          historico_tecnico: perfil.historico_tecnico || [],
-          historico_medico: perfil.historico_medico || []
-        });
+        await supabase.from('pacientes').upsert([{
+          codigo: unificado.codigo,
+          nome: unificado.nome,
+          idade: parseInt(unificado.idade) || null,
+          sexo: unificado.sexo,
+          tipo_tratamento: unificado.tipo,
+          medico_responsavel: unificado.medico,
+          hospital: unificado.hospital,
+          hospital_id: unificado.hospital_id,
+          total_sessoes: parseInt(unificado.totalSessoes) || 30,
+          sessao_atual: parseInt(unificado.sessaoAtual) || 0,
+          historico_enfermagem: unificado.historico_enfermagem,
+          historico_tecnico: unificado.historico_tecnico,
+          historico_medico: unificado.historico_medico
+        }], { onConflict: 'codigo' });
       } catch (err) {
-        console.warn('Could not save to Supabase, fallback to local:', err);
+        try {
+          // Tenta update básico caso upsert com array falhar por schema
+          await supabase.from('pacientes').update({
+            nome: unificado.nome,
+            sessao_atual: parseInt(unificado.sessaoAtual) || 0
+          }).eq('codigo', unificado.codigo);
+        } catch (e2) {}
       }
     }
 
-    // Salvar no LocalStorage sempre para sincronização híbrida
-    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    todos[perfil.codigo] = perfil;
-    localStorage.setItem('axion_pacientes', JSON.stringify(todos));
-    return perfil;
+    return unificado;
   },
 
   // Adicionar Evolução de Enfermagem
-  async adicionarEvolucaoEnfermagem(codigo, registroEnfermagem) {
+  async adicionarEvolucaoEnfermagem(pacienteOuCodigo, registroEnfermagem) {
+    let paciente = typeof pacienteOuCodigo === 'object' ? pacienteOuCodigo : null;
+    const codigo = paciente?.codigo || pacienteOuCodigo;
+
+    if (!codigo) return null;
+
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    let paciente = todos[codigo] || {};
+    const base = paciente || todos[codigo] || { codigo };
 
-    const historico = paciente.historico_enfermagem || [];
+    const historico = base.historico_enfermagem || [];
     historico.unshift(registroEnfermagem);
-    paciente.historico_enfermagem = historico;
+    base.historico_enfermagem = historico;
 
-    await this.savePatient(paciente);
-    return paciente;
+    const salvo = await this.savePatient(base);
+    return salvo;
   },
 
   // Adicionar Registro Técnico de Aplicação
-  async adicionarRegistroTecnico(codigo, registroTecnico, novaSessaoAtual) {
-    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    let paciente = todos[codigo] || {};
+  async adicionarRegistroTecnico(pacienteOuCodigo, registroTecnico, novaSessaoAtual) {
+    let paciente = typeof pacienteOuCodigo === 'object' ? pacienteOuCodigo : null;
+    const codigo = paciente?.codigo || pacienteOuCodigo;
 
-    const historico = paciente.historico_tecnico || [];
+    if (!codigo) return null;
+
+    const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+    const base = paciente || todos[codigo] || { codigo };
+
+    const historico = base.historico_tecnico || [];
     historico.unshift(registroTecnico);
-    paciente.historico_tecnico = historico;
+    base.historico_tecnico = historico;
     if (novaSessaoAtual !== undefined) {
-      paciente.sessaoAtual = novaSessaoAtual;
-      paciente.sessao_atual = novaSessaoAtual;
+      base.sessaoAtual = novaSessaoAtual;
+      base.sessao_atual = novaSessaoAtual;
     }
 
-    await this.savePatient(paciente);
-    return paciente;
+    const salvo = await this.savePatient(base);
+    return salvo;
   },
 
   // Adicionar Conduta Médica Oncologia
-  async adicionarCondutaMedica(codigo, registroMedico) {
+  async adicionarCondutaMedica(pacienteOuCodigo, registroMedico) {
+    let paciente = typeof pacienteOuCodigo === 'object' ? pacienteOuCodigo : null;
+    const codigo = paciente?.codigo || pacienteOuCodigo;
+
+    if (!codigo) return null;
+
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    let paciente = todos[codigo] || {};
+    const base = paciente || todos[codigo] || { codigo };
 
-    const historico = paciente.historico_medico || [];
+    const historico = base.historico_medico || [];
     historico.unshift(registroMedico);
-    paciente.historico_medico = historico;
+    base.historico_medico = historico;
 
-    await this.savePatient(paciente);
-    return paciente;
+    const salvo = await this.savePatient(base);
+    return salvo;
   },
 
   // Registrar Sintomas Diários no Supabase + LocalStorage
@@ -194,7 +239,7 @@ export const PatientService = {
     return null;
   },
 
-  // Listar pacientes unificando Supabase + LocalStorage
+  // Listar pacientes unificando Supabase + LocalStorage (Filtrando registros de teste)
   async listarPacientes() {
     let mapaPacientes = {};
 

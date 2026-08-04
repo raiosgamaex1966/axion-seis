@@ -70,6 +70,7 @@ export function App() {
     setRole("medico");
     try {
       localStorage.setItem("axion_role_ativa", "medico");
+      if (medicoData) localStorage.setItem("axion_profissional_logado", JSON.stringify(medicoData));
     } catch (e) {}
     setPage("profissional");
   };
@@ -97,6 +98,7 @@ export function App() {
       localStorage.removeItem("axion_sessao_ativa");
       localStorage.removeItem("axion_role_ativa");
       localStorage.removeItem("axion_hospital_ativo");
+      localStorage.removeItem("axion_profissional_logado");
     } catch (e) {}
     setPerfil(null);
     setHospitalAtivo(null);

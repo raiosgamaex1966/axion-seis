@@ -12,7 +12,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
   const [statusMsg, setStatusMsg] = useState("");
   const [unidadeProfissional, setUnidadeProfissional] = useState("");
 
-  // formulários por perfil (LGPD / RBAC)
+  // Formulários por perfil (LGPD / RBAC)
   const [obsTecnica, setObsTecnica] = useState("");
   const [acessoriosImobilizacao, setAcessoriosImobilizacao] = useState("Máscara Termoplástica + Colchão Vac-Lok");
   
@@ -29,21 +29,30 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
   const carregarPerfilEProfissional = async () => {
     await PatientService.purgeMockPatients();
 
-    const hospAtivo = JSON.parse(localStorage.getItem("axion_hospital_ativo") || "null");
-    let nomeHospTarget = hospAtivo?.nome;
     let profLocalizado = null;
-
     try {
-      const todosProfs = JSON.parse(localStorage.getItem("axion_profissionais") || "{}");
-      const listaProfs = Object.values(todosProfs);
-      if (listaProfs.length > 0) {
-        profLocalizado = listaProfs[0];
-        if (!nomeHospTarget) nomeHospTarget = profLocalizado.hospital_nome;
-        if (profLocalizado.cargo) setCargo(profLocalizado.cargo);
+      const logadoStr = localStorage.getItem("axion_profissional_logado");
+      if (logadoStr) {
+        profLocalizado = JSON.parse(logadoStr);
       }
     } catch (e) {}
 
-    setProfAtivo(profLocalizado);
+    if (!profLocalizado) {
+      try {
+        const todosProfs = JSON.parse(localStorage.getItem("axion_profissionais") || "{}");
+        const listaProfs = Object.values(todosProfs);
+        if (listaProfs.length > 0) profLocalizado = listaProfs[0];
+      } catch (e) {}
+    }
+
+    const hospAtivo = JSON.parse(localStorage.getItem("axion_hospital_ativo") || "null");
+    const nomeHospTarget = hospAtivo?.nome || profLocalizado?.hospital_nome;
+
+    if (profLocalizado) {
+      setProfAtivo(profLocalizado);
+      if (profLocalizado.cargo) setCargo(profLocalizado.cargo);
+    }
+
     setUnidadeProfissional(nomeHospTarget || "");
 
     const lista = await PatientService.listarPacientes();
@@ -108,13 +117,13 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     const registro = {
       data: new Date().toLocaleDateString('pt-BR'),
       hora: new Date().toLocaleTimeString('pt-BR'),
-      tecnico: profAtivo?.nome || "Técnico de Radioterapia",
+      tecnico: profAtivo?.nome || profAtivo?.email || "Técnico de Radioterapia",
       sessao: novaSessao,
       acessorios: acessoriosImobilizacao,
       observacao: obsTecnica || "Sessão executada com alinhamento a laser OK e pele preservada."
     };
 
-    const atualizado = await PatientService.adicionarRegistroTecnico(pacienteSelecionado.codigo, registro, novaSessao);
+    const atualizado = await PatientService.adicionarRegistroTecnico(pacienteSelecionado, registro, novaSessao);
     setPacienteSelecionado(atualizado);
     setObsTecnica("");
     setStatusMsg(`🎉 Sessão #${novaSessao} executada e baixada com sucesso no prontuário!`);
@@ -130,12 +139,12 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     const registro = {
       data: new Date().toLocaleDateString('pt-BR'),
       hora: new Date().toLocaleTimeString('pt-BR'),
-      enfermeiro: profAtivo?.nome || "Enfermeira Oncologia",
+      enfermeiro: profAtivo?.nome || profAtivo?.email || "Enfermeira Oncologia",
       grauRadiodermite,
       evolucao: evolucaoEnfermagem.trim()
     };
 
-    const atualizado = await PatientService.adicionarEvolucaoEnfermagem(pacienteSelecionado.codigo, registro);
+    const atualizado = await PatientService.adicionarEvolucaoEnfermagem(pacienteSelecionado, registro);
     setPacienteSelecionado(atualizado);
     setEvolucaoEnfermagem("");
     setStatusMsg("🩺 Evolução de Enfermagem gravada com sucesso no prontuário!");
@@ -151,11 +160,11 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
     const registro = {
       data: new Date().toLocaleDateString('pt-BR'),
       hora: new Date().toLocaleTimeString('pt-BR'),
-      medico: profAtivo?.nome || "Dr. Oncologista",
+      medico: profAtivo?.nome || profAtivo?.email || "Dr. Oncologista",
       conduta: condutaMedica.trim()
     };
 
-    const atualizado = await PatientService.adicionarCondutaMedica(pacienteSelecionado.codigo, registro);
+    const atualizado = await PatientService.adicionarCondutaMedica(pacienteSelecionado, registro);
     setPacienteSelecionado(atualizado);
     setCondutaMedica("");
     setStatusMsg("👨‍⚕️ Conduta Médica gravada no prontuário multidisciplinar!");
@@ -192,7 +201,7 @@ export function Profissional({ onBack, onSair, userRole = "medico" }) {
         <div style={{ background: `${cargoBadge[cargo]}18`, border: `1px solid ${cargoBadge[cargo]}55`, borderRadius: 12, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>PROFISSIONAL CONECTADO</div>
-            <div style={{ fontSize: 13, fontWeight: 900, color: cargoBadge[cargo] }}>{profAtivo?.nome || "Profissional de Saúde"}</div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: cargoBadge[cargo] }}>{profAtivo?.nome || profAtivo?.email || "Profissional de Saúde"}</div>
           </div>
           <span style={{ fontSize: 11, background: cargoBadge[cargo], color: C.navy, padding: "4px 10px", borderRadius: 99, fontWeight: 900 }}>
             {cargoLabel[cargo]}
