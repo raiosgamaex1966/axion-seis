@@ -172,16 +172,16 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
         {/* Abas de Navegação Interna do Admin */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "rgba(0,0,0,0.2)", padding: 4, borderRadius: 14 }}>
-          <button onClick={() => setTab("equipe")} style={{ background: tab === "equipe" || tab === "cadastrar_prof" ? C.purple : "transparent", color: tab === "equipe" || tab === "cadastrar_prof" ? "#fff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
+          <button onClick={() => setTab("equipe")} style={{ background: tab === "equipe" || tab === "cadastrar_prof" ? C.purple : "transparent", color: tab === "equipe" || tab === "cadastrar_prof" ? "#ffffff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
             👥 Equipe ({equipe.length})
           </button>
-          <button onClick={() => setTab("lista_pacientes")} style={{ background: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? C.purple : "transparent", color: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? "#fff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
+          <button onClick={() => setTab("lista_pacientes")} style={{ background: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? C.purple : "transparent", color: tab === "lista_pacientes" || tab === "cadastrar_paciente" ? "#ffffff" : C.muted, border: "none", borderRadius: 10, padding: "10px", fontSize: 12, fontWeight: 800 }}>
             📜 Pacientes ({pacientesUnidade.length})
           </button>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-          <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `${C.purple}22`, border: `1px solid ${C.purple}55`, color: C.purple, borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800 }}>
+          <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `${C.purple}22`, border: `1px solid ${C.purple}55`, color: "#ffffff", borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800 }}>
             + Profissional
           </button>
           <button onClick={() => { setTab("cadastrar_paciente"); setPacienteGerado(null); }} style={{ background: `${C.teal}22`, border: `1px solid ${C.teal}55`, color: C.teal, borderRadius: 10, padding: "8px", fontSize: 11, fontWeight: 800 }}>
@@ -203,7 +203,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                 <div style={{ fontSize: 40, marginBottom: 10 }}>👨‍⚕️</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Nenhum profissional cadastrado ainda</div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 18 }}>Clique no botão "+ Profissional" acima para cadastrar médicos, enfermeiros e técnicos desta unidade.</div>
-                <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `linear-gradient(135deg,${C.purple},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontWeight: 800, fontSize: 13 }}>
+                <button onClick={() => { setTab("cadastrar_prof"); setProfCadastrado(null); }} style={{ background: `linear-gradient(135deg,${C.purple},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: "#ffffff", fontWeight: 800, fontSize: 13 }}>
                   + Cadastrar Primeiro Profissional
                 </button>
               </div>
@@ -214,7 +214,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                   <div key={idx} style={{ background: C.navyL, border: `1px solid ${infoCargo.bg}33`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                       <div>
-                        <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff" }}>{p.nome}</div>
                         <div style={{ fontSize: 11, color: C.muted }}>Registro: {p.registro_profissional || "Ativo"} — {p.email}</div>
                       </div>
                       <span style={{ background: `${infoCargo.bg}22`, color: infoCargo.bg, border: `1px solid ${infoCargo.bg}55`, borderRadius: 99, padding: "4px 10px", fontSize: 10, fontWeight: 800 }}>
@@ -238,17 +238,17 @@ export function AdminHospital({ onBack, onSair, hospital }) {
               <div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO *</label>
-                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Roberto Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.nome} onChange={e => setNovoProf(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Dr. Roberto Silva" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>E-MAIL PROFISSIONAL DE ACESSO *</label>
-                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="exemplo@hospital.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.email} onChange={e => setNovoProf(p => ({ ...p, email: e.target.value }))} placeholder="exemplo@hospital.com" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>CARGO / FUNÇÃO NA CLÍNICA *</label>
-                  <select value={novoProf.cargo} onChange={e => setNovoProf(p => ({ ...p, cargo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }}>
+                  <select value={novoProf.cargo} onChange={e => setNovoProf(p => ({ ...p, cargo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }}>
                     <option value="medico">👨‍⚕️ Médico Oncologista</option>
                     <option value="enfermeiro">🩺 Enfermeiro(a) Oncologia</option>
                     <option value="tecnico">⚛️ Técnico em Radioterapia</option>
@@ -257,10 +257,10 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>REGISTRO PROFISSIONAL (CRM / COREN / CRTR)</label>
-                  <input value={novoProf.registro} onChange={e => setNovoProf(p => ({ ...p, registro: e.target.value }))} placeholder="Ex: CRM 12345-SP" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input value={novoProf.registro} onChange={e => setNovoProf(p => ({ ...p, registro: e.target.value }))} placeholder="Ex: CRM 12345-SP" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
-                <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoProf.nome && novoProf.email ? `linear-gradient(135deg,${C.purple},${C.blue})` : C.navyM, color: "#fff", fontWeight: 900, fontSize: 14 }}>
+                <button onClick={cadastrarProfissional} disabled={!novoProf.nome || !novoProf.email} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoProf.nome && novoProf.email ? `linear-gradient(135deg,${C.purple},${C.blue})` : C.navyM, color: "#ffffff", fontWeight: 900, fontSize: 14 }}>
                   🎉 Cadastrar Profissional & Gerar Acesso
                 </button>
               </div>
@@ -277,11 +277,11 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                   <div><strong>Senha de Acesso:</strong> <span style={{ color: C.gold, fontWeight: 900 }}>{profCadastrado.senha_provisoria}</span></div>
                 </div>
 
-                <button onClick={copiarAcessoProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: C.purple, fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
+                <button onClick={copiarAcessoProf} style={{ width: "100%", padding: "12px", borderRadius: 12, border: `1.5px solid ${C.purple}`, background: copiadoProf ? `${C.purple}22` : "transparent", color: "#ffffff", fontWeight: 800, fontSize: 13, marginBottom: 10 }}>
                   {copiadoProf ? "✓ Credenciais Copiadas!" : "📋 Copiar Dados para Enviar via WhatsApp"}
                 </button>
 
-                <button onClick={() => setTab("equipe")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: C.text, fontWeight: 800, fontSize: 13 }}>
+                <button onClick={() => setTab("equipe")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: "#ffffff", fontWeight: 800, fontSize: 13 }}>
                   Voltar para Lista de Equipe →
                 </button>
               </div>
@@ -301,7 +301,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                 <div style={{ fontSize: 40, marginBottom: 10 }}>📜</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Nenhum paciente admitido ainda</div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 18 }}>Clique no botão "+ Admitir Paciente" acima para cadastrar o primeiro paciente desta unidade.</div>
-                <button onClick={() => { setTab("cadastrar_paciente"); setPacienteGerado(null); }} style={{ background: `linear-gradient(135deg,${C.teal},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: C.navy, fontWeight: 900, fontSize: 13 }}>
+                <button onClick={() => { setTab("cadastrar_paciente"); setPacienteGerado(null); }} style={{ background: `linear-gradient(135deg,${C.teal},${C.blue})`, border: "none", borderRadius: 12, padding: "12px 24px", color: "#ffffff", fontWeight: 900, fontSize: 13 }}>
                   + Admitir Primeiro Paciente
                 </button>
               </div>
@@ -310,7 +310,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                 <div key={idx} style={{ background: C.navyL, border: `1px solid ${C.teal}33`, borderRadius: 16, padding: "16px", marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 900 }}>{p.nome}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff" }}>{p.nome}</div>
                       <div style={{ fontSize: 11, color: C.muted }}>{p.tipo || p.tipo_tratamento} — {p.sessao_atual || p.sessaoAtual || 0}/{p.total_sessoes || p.totalSessoes || 30} sessões</div>
                     </div>
                     <div style={{ background: `${C.teal}22`, color: C.teal, border: `1px solid ${C.teal}55`, borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 900, fontFamily: "'Space Grotesk',sans-serif" }}>
@@ -333,17 +333,17 @@ export function AdminHospital({ onBack, onSair, hospital }) {
               <div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>NOME COMPLETO DO PACIENTE *</label>
-                  <input value={novoPac.nome} onChange={e => setNovoPac(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Roberto de Jesus Vasconcelos" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input value={novoPac.nome} onChange={e => setNovoPac(p => ({ ...p, nome: e.target.value }))} placeholder="Ex: Roberto de Jesus Vasconcelos" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>IDADE</label>
-                    <input type="number" value={novoPac.idade} onChange={e => setNovoPac(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 62" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                    <input type="number" value={novoPac.idade} onChange={e => setNovoPac(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 62" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                   </div>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>SEXO BIOLÓGICO</label>
-                    <select value={novoPac.sexo} onChange={e => setNovoPac(p => ({ ...p, sexo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }}>
+                    <select value={novoPac.sexo} onChange={e => setNovoPac(p => ({ ...p, sexo: e.target.value }))} style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }}>
                       <option value="Masculino">Masculino</option>
                       <option value="Feminino">Feminino</option>
                     </select>
@@ -352,15 +352,15 @@ export function AdminHospital({ onBack, onSair, hospital }) {
 
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TIPO DE TRATAMENTO / CID *</label>
-                  <input value={novoPac.tipo} onChange={e => setNovoPac(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Pulmão, Próstata, Mama..." style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input value={novoPac.tipo} onChange={e => setNovoPac(p => ({ ...p, tipo: e.target.value }))} placeholder="Ex: Pulmão, Próstata, Mama..." style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: "block", marginBottom: 4 }}>TOTAL DE SESSÕES PLANEJADAS</label>
-                  <input type="number" value={novoPac.totalSessoes} onChange={e => setNovoPac(p => ({ ...p, totalSessoes: e.target.value }))} placeholder="30" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: C.text, fontSize: 13 }} />
+                  <input type="number" value={novoPac.totalSessoes} onChange={e => setNovoPac(p => ({ ...p, totalSessoes: e.target.value }))} placeholder="30" style={{ width: "100%", background: C.navyM, border: `1px solid ${C.navyM}`, borderRadius: 12, padding: "12px", color: "#ffffff", fontSize: 13 }} />
                 </div>
 
-                <button onClick={cadastrarPacienteNaUnidade} disabled={!novoPac.nome || !novoPac.tipo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoPac.nome && novoPac.tipo ? `linear-gradient(135deg,${C.teal},${C.blue})` : C.navyM, color: C.navy, fontWeight: 900, fontSize: 14 }}>
+                <button onClick={cadastrarPacienteNaUnidade} disabled={!novoPac.nome || !novoPac.tipo} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: novoPac.nome && novoPac.tipo ? `linear-gradient(135deg,${C.teal},${C.blue})` : C.navyM, color: novoPac.nome && novoPac.tipo ? "#ffffff" : C.muted, fontWeight: 900, fontSize: 14 }}>
                   🎉 Admitir Paciente & Gerar Código AXION
                 </button>
               </div>
@@ -379,7 +379,7 @@ export function AdminHospital({ onBack, onSair, hospital }) {
                   {copiado ? "✓ Código Copiado!" : "📋 Copiar Código para Enviar ao Paciente"}
                 </button>
 
-                <button onClick={() => setTab("lista_pacientes")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: C.text, fontWeight: 800, fontSize: 13 }}>
+                <button onClick={() => setTab("lista_pacientes")} style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: C.navyM, color: "#ffffff", fontWeight: 800, fontSize: 13 }}>
                   Ver Lista de Pacientes →
                 </button>
               </div>
