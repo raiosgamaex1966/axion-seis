@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { C } from '../constants/theme';
 import { BackBtn, TabBar } from '../components/ui/NavigationControls';
 import { PatientService } from '../services/supabaseClient';
@@ -8,12 +8,26 @@ export function Paciente({ onBack, perfil, onSair }) {
   const [confirmSair, setConfirmSair] = useState(false);
   const [syms, setSyms] = useState({ fadiga: 3, dor: 2, nausea: 1, apetite: 2, ansiedade: 2, sono: 3 });
   const [saved, setSaved] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [expandSym, setExpandSym] = useState(null);
 
   const totalSessoes = parseInt(perfil?.totalSessoes || perfil?.total_sessoes) || 30;
   const sessaoAtual = parseInt(perfil?.sessaoAtual || perfil?.sessao_atual) || 8;
   const progPct = Math.round((sessaoAtual / totalSessoes) * 100);
   const sessions = Array.from({ length: totalSessoes }, (_, i) => ({ n: i + 1, done: i < sessaoAtual - 1, active: i === sessaoAtual - 1 }));
+
+  useEffect(() => {
+    carregarSintomasAnteriores();
+  }, [perfil]);
+
+  const carregarSintomasAnteriores = async () => {
+    if (perfil?.codigo) {
+      const anteriores = await PatientService.obterSintomas(perfil.codigo);
+      if (anteriores) {
+        setSyms(prev => ({ ...prev, ...anteriores }));
+      }
+    }
+  };
 
   const symInfo = {
     fadiga: { label: "Fadiga", emoji: "😴", desc: "Sensação de cansaço extremo que não melhora com descanso.", dica: "Descanse quando precisar. Pequenas caminhadas ajudam.", color: C.orange },
@@ -25,10 +39,12 @@ export function Paciente({ onBack, perfil, onSair }) {
   };
 
   const salvarSintomasHoje = async () => {
-    if (perfil?.codigo) {
-      await PatientService.registrarSintomas(perfil.codigo, syms);
-    }
+    if (!perfil?.codigo) return;
+    setSalvando(true);
+    await PatientService.registrarSintomas(perfil.codigo, syms);
+    setSalvando(false);
     setSaved(true);
+    setTimeout(() => setSaved(false), 4000);
   };
 
   return (
@@ -159,11 +175,11 @@ export function Paciente({ onBack, perfil, onSair }) {
                   </div>
                 </div>
               )}
-              <input type="range" min="0" max="10" value={syms[k]} onChange={e => { setSyms(s => ({ ...s, [k]: +e.target.value })); setSaved(false); }} />
+              <input type="range" min="0" max="10" value={syms[k]} onChange={e => { setSyms(s => ({ ...s, [k]: +e.target.value })); setSaved(false); }} style={{ width: "100%", accentColor: info.color }} />
             </div>
           ))}
-          <button onClick={salvarSintomasHoje} style={{ width: "100%", padding: "14px", borderRadius: 14, border: saved ? `1px solid ${C.teal}` : "none", background: saved ? `${C.teal}18` : `linear-gradient(135deg,${C.teal},${C.blue})`, color: saved ? C.teal : C.navy, fontWeight: 800, fontSize: 14 }}>
-            {saved ? "✓ Registrado com sucesso na Nuvem!" : "Registrar Sintomas de Hoje"}
+          <button onClick={salvarSintomasHoje} disabled={salvando} style={{ width: "100%", padding: "14px", borderRadius: 14, border: saved ? `1px solid ${C.teal}` : "none", background: saved ? `${C.teal}18` : `linear-gradient(135deg,${C.teal},${C.blue})`, color: saved ? C.teal : C.navy, fontWeight: 800, fontSize: 14 }}>
+            {salvando ? "Salvando na Nuvem..." : saved ? "✓ Sintomas de Hoje Gravados no Prontuário!" : "Registrar Sintomas de Hoje"}
           </button>
         </div>
       )}

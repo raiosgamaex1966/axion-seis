@@ -10,7 +10,7 @@ export const supabase = supabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais
+// Serviço de Abstração para Autenticação e Dados de Pacientes / Profissionais / Sintomas
 export const PatientService = {
   // Purga registros fictícios de testes do Supabase e LocalStorage
   async purgeMockPatients() {
@@ -71,11 +71,85 @@ export const PatientService = {
       }
     }
 
-    // Salvar no LocalStorage sempre para sincronização hibrida
+    // Salvar no LocalStorage sempre para sincronização híbrida
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
     todos[perfil.codigo] = perfil;
     localStorage.setItem('axion_pacientes', JSON.stringify(todos));
     return perfil;
+  },
+
+  // Registrar Sintomas Diários no Supabase + LocalStorage
+  async registrarSintomas(codigo, sintomasObj) {
+    if (!codigo) return false;
+
+    // 1. Tenta salvar no Supabase na tabela de sintomas e atualizar o registro do paciente
+    if (supabaseConfigured) {
+      try {
+        await supabase.from('sintomas_pacientes').insert([{
+          paciente_codigo: codigo,
+          sintomas: sintomasObj,
+          criado_em: new Date().toISOString()
+        }]);
+      } catch (e) {
+        try {
+          await supabase.from('pacientes').update({
+            ultimos_sintomas: sintomasObj
+          }).eq('codigo', codigo);
+        } catch (err) {}
+      }
+    }
+
+    // 2. Salva no LocalStorage em histórico + perfil do paciente
+    try {
+      const keyHist = `axion_sintomas_${codigo}`;
+      const historico = JSON.parse(localStorage.getItem(keyHist) || '[]');
+      historico.unshift({
+        data: new Date().toLocaleDateString('pt-BR'),
+        hora: new Date().toLocaleTimeString('pt-BR'),
+        sintomas: sintomasObj
+      });
+      localStorage.setItem(keyHist, JSON.stringify(historico));
+
+      const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+      if (todos[codigo]) {
+        todos[codigo].sintomas = sintomasObj;
+        localStorage.setItem('axion_pacientes', JSON.stringify(todos));
+      }
+    } catch (e) {}
+
+    return true;
+  },
+
+  // Obter Sintomas Salvos do Paciente
+  async obterSintomas(codigo) {
+    if (!codigo) return null;
+
+    // 1. Tenta carregar do LocalStorage primeiro
+    try {
+      const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
+      if (todos[codigo] && todos[codigo].sintomas) {
+        return todos[codigo].sintomas;
+      }
+      const keyHist = `axion_sintomas_${codigo}`;
+      const historico = JSON.parse(localStorage.getItem(keyHist) || '[]');
+      if (historico.length > 0) return historico[0].sintomas;
+    } catch (e) {}
+
+    // 2. Tenta carregar do Supabase
+    if (supabaseConfigured) {
+      try {
+        const { data } = await supabase
+          .from('sintomas_pacientes')
+          .select('sintomas')
+          .eq('paciente_codigo', codigo)
+          .order('criado_em', { ascending: false })
+          .limit(1);
+
+        if (data && data.length > 0) return data[0].sintomas;
+      } catch (e) {}
+    }
+
+    return null;
   },
 
   // Listar pacientes unificando Supabase + LocalStorage (Filtrando registros de teste)
@@ -111,7 +185,8 @@ export const PatientService = {
                 codigo: p.codigo,
                 tipo: p.tipo_tratamento || p.tipo,
                 sessaoAtual: p.sessao_atual,
-                totalSessoes: p.total_sessoes
+                totalSessoes: p.total_sessoes,
+                sintomas: p.ultimos_sintomas || mapaPacientes[p.codigo]?.sintomas
               };
             }
           });
