@@ -29,20 +29,14 @@ export function Splash({ onDone }) {
 }
 
 export function Nav({ page, onNav, role = "paciente" }) {
-  // Super Admin nao utiliza barra de navegacao inferior pois possui painel master exclusivo
-  if (role === "superadmin") {
+  // Super Admin e Admin Hospital possuem paineis administrativos dedicados (sem acesso a prontuarios de pacientes conforme LGPD)
+  if (role === "superadmin" || role === "admin_hospital") {
     return null;
   }
 
   let items = [];
 
-  if (role === "admin_hospital") {
-    items = [
-      { id: "admin_hospital", icon: "🏢", label: "Admin Hospital" },
-      { id: "profissional", icon: "🏥", label: "Painel Clínico" },
-      { id: "ia", icon: "🤖", label: "Assistente IA" }
-    ];
-  } else if (role === "medico") {
+  if (role === "medico") {
     items = [
       { id: "profissional", icon: "🏥", label: "Painel Clínico" },
       { id: "ia", icon: "🤖", label: "Assistente IA" },
