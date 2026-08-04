@@ -55,13 +55,24 @@ export const PatientService = {
   async savePatient(perfil) {
     if (!perfil || !perfil.codigo) return perfil;
 
-    // 1. Atualiza e mescla no LocalStorage primeiro para garantia imediata
+    const codigo = perfil.codigo;
+
+    // 1. Carrega histórico existente do LocalStorage
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
-    const existente = todos[perfil.codigo] || {};
+    const existente = todos[codigo] || {};
+
+    const histEnfLocal = JSON.parse(localStorage.getItem(`axion_enfermagem_${codigo}`) || '[]');
+    const histTecLocal = JSON.parse(localStorage.getItem(`axion_tecnico_${codigo}`) || '[]');
+    const histMedLocal = JSON.parse(localStorage.getItem(`axion_medico_${codigo}`) || '[]');
+
+    const historicoEnfermagem = perfil.historico_enfermagem || existente.historico_enfermagem || histEnfLocal;
+    const historicoTecnico = perfil.historico_tecnico || existente.historico_tecnico || histTecLocal;
+    const historicoMedico = perfil.historico_medico || existente.historico_medico || histMedLocal;
+
     const unificado = {
       ...existente,
       ...perfil,
-      codigo: perfil.codigo,
+      codigo: codigo,
       nome: perfil.nome || existente.nome,
       idade: perfil.idade || existente.idade,
       sexo: perfil.sexo || existente.sexo,
@@ -71,15 +82,20 @@ export const PatientService = {
       medico: perfil.medico || perfil.medico_responsavel || existente.medico,
       totalSessoes: perfil.totalSessoes || perfil.total_sessoes || existente.totalSessoes || 30,
       sessaoAtual: perfil.sessaoAtual !== undefined ? perfil.sessaoAtual : (perfil.sessao_atual !== undefined ? perfil.sessao_atual : (existente.sessaoAtual || 0)),
-      historico_enfermagem: perfil.historico_enfermagem || existente.historico_enfermagem || [],
-      historico_tecnico: perfil.historico_tecnico || existente.historico_tecnico || [],
-      historico_medico: perfil.historico_medico || existente.historico_medico || []
+      historico_enfermagem: historicoEnfermagem,
+      historico_tecnico: historicoTecnico,
+      historico_medico: historicoMedico
     };
 
-    todos[perfil.codigo] = unificado;
+    // Salva nas chaves dedicadas inquebráveis
+    localStorage.setItem(`axion_enfermagem_${codigo}`, JSON.stringify(historicoEnfermagem));
+    localStorage.setItem(`axion_tecnico_${codigo}`, JSON.stringify(historicoTecnico));
+    localStorage.setItem(`axion_medico_${codigo}`, JSON.stringify(historicoMedico));
+
+    todos[codigo] = unificado;
     localStorage.setItem('axion_pacientes', JSON.stringify(todos));
 
-    // 2. Persiste no Supabase em tempo real com tratamento de erro
+    // 2. Persiste no Supabase em tempo real
     if (supabaseConfigured) {
       try {
         await supabase.from('pacientes').upsert([{
@@ -99,7 +115,6 @@ export const PatientService = {
         }], { onConflict: 'codigo' });
       } catch (err) {
         try {
-          // Tenta update básico caso upsert com array falhar por schema
           await supabase.from('pacientes').update({
             nome: unificado.nome,
             sessao_atual: parseInt(unificado.sessaoAtual) || 0
@@ -121,9 +136,13 @@ export const PatientService = {
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
     const base = paciente || todos[codigo] || { codigo };
 
-    const historico = base.historico_enfermagem || [];
+    const histEnfLocal = JSON.parse(localStorage.getItem(`axion_enfermagem_${codigo}`) || '[]');
+    const historico = base.historico_enfermagem || histEnfLocal || [];
+    
     historico.unshift(registroEnfermagem);
     base.historico_enfermagem = historico;
+
+    localStorage.setItem(`axion_enfermagem_${codigo}`, JSON.stringify(historico));
 
     const salvo = await this.savePatient(base);
     return salvo;
@@ -139,13 +158,17 @@ export const PatientService = {
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
     const base = paciente || todos[codigo] || { codigo };
 
-    const historico = base.historico_tecnico || [];
+    const histTecLocal = JSON.parse(localStorage.getItem(`axion_tecnico_${codigo}`) || '[]');
+    const historico = base.historico_tecnico || histTecLocal || [];
+    
     historico.unshift(registroTecnico);
     base.historico_tecnico = historico;
     if (novaSessaoAtual !== undefined) {
       base.sessaoAtual = novaSessaoAtual;
       base.sessao_atual = novaSessaoAtual;
     }
+
+    localStorage.setItem(`axion_tecnico_${codigo}`, JSON.stringify(historico));
 
     const salvo = await this.savePatient(base);
     return salvo;
@@ -161,9 +184,13 @@ export const PatientService = {
     const todos = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
     const base = paciente || todos[codigo] || { codigo };
 
-    const historico = base.historico_medico || [];
+    const histMedLocal = JSON.parse(localStorage.getItem(`axion_medico_${codigo}`) || '[]');
+    const historico = base.historico_medico || histMedLocal || [];
+
     historico.unshift(registroMedico);
     base.historico_medico = historico;
+
+    localStorage.setItem(`axion_medico_${codigo}`, JSON.stringify(historico));
 
     const salvo = await this.savePatient(base);
     return salvo;
@@ -239,19 +266,31 @@ export const PatientService = {
     return null;
   },
 
-  // Listar pacientes unificando Supabase + LocalStorage (Filtrando registros de teste)
+  // Listar pacientes unificando Supabase + LocalStorage (Sem perda de historicos)
   async listarPacientes() {
     let mapaPacientes = {};
 
+    // 1. Carrega do LocalStorage primeiro
     try {
       const todosLocais = JSON.parse(localStorage.getItem('axion_pacientes') || '{}');
       Object.values(todosLocais).forEach(p => {
         if (p.codigo && !['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966'].includes(p.codigo)) {
-          mapaPacientes[p.codigo] = p;
+          const codigo = p.codigo;
+          const histEnfLocal = JSON.parse(localStorage.getItem(`axion_enfermagem_${codigo}`) || '[]');
+          const histTecLocal = JSON.parse(localStorage.getItem(`axion_tecnico_${codigo}`) || '[]');
+          const histMedLocal = JSON.parse(localStorage.getItem(`axion_medico_${codigo}`) || '[]');
+
+          mapaPacientes[codigo] = {
+            ...p,
+            historico_enfermagem: p.historico_enfermagem || histEnfLocal,
+            historico_tecnico: p.historico_tecnico || histTecLocal,
+            historico_medico: p.historico_medico || histMedLocal
+          };
         }
       });
     } catch (e) {}
 
+    // 2. Mescla com dados da nuvem do Supabase preservando historicos inquebráveis
     if (supabaseConfigured) {
       try {
         const { data, error } = await supabase
@@ -262,18 +301,35 @@ export const PatientService = {
         if (data && !error) {
           data.forEach(p => {
             if (p.codigo && !['AX-QHH-5021', 'AX-DAT-3036', 'AX-EXB-8918', 'AX-VUT-5966'].includes(p.codigo)) {
-              mapaPacientes[p.codigo] = {
-                ...mapaPacientes[p.codigo],
+              const codigo = p.codigo;
+              const localObj = mapaPacientes[codigo] || {};
+              const histEnfLocal = JSON.parse(localStorage.getItem(`axion_enfermagem_${codigo}`) || '[]');
+              const histTecLocal = JSON.parse(localStorage.getItem(`axion_tecnico_${codigo}`) || '[]');
+              const histMedLocal = JSON.parse(localStorage.getItem(`axion_medico_${codigo}`) || '[]');
+
+              const histEnf = (Array.isArray(p.historico_enfermagem) && p.historico_enfermagem.length > 0)
+                ? p.historico_enfermagem
+                : (Array.isArray(localObj.historico_enfermagem) && localObj.historico_enfermagem.length > 0 ? localObj.historico_enfermagem : histEnfLocal);
+
+              const histTec = (Array.isArray(p.historico_tecnico) && p.historico_tecnico.length > 0)
+                ? p.historico_tecnico
+                : (Array.isArray(localObj.historico_tecnico) && localObj.historico_tecnico.length > 0 ? localObj.historico_tecnico : histTecLocal);
+
+              const histMed = (Array.isArray(p.historico_medico) && p.historico_medico.length > 0)
+                ? p.historico_medico
+                : (Array.isArray(localObj.historico_medico) && localObj.historico_medico.length > 0 ? localObj.historico_medico : histMedLocal);
+
+              mapaPacientes[codigo] = {
+                ...localObj,
                 ...p,
-                nome: p.nome,
+                nome: p.nome || localObj.nome,
                 codigo: p.codigo,
-                tipo: p.tipo_tratamento || p.tipo,
-                sessaoAtual: p.sessao_atual,
-                totalSessoes: p.total_sessoes,
-                sintomas: p.ultimos_sintomas || mapaPacientes[p.codigo]?.sintomas,
-                historico_enfermagem: p.historico_enfermagem || mapaPacientes[p.codigo]?.historico_enfermagem || [],
-                historico_tecnico: p.historico_tecnico || mapaPacientes[p.codigo]?.historico_tecnico || [],
-                historico_medico: p.historico_medico || mapaPacientes[p.codigo]?.historico_medico || []
+                tipo: p.tipo_tratamento || p.tipo || localObj.tipo,
+                sessaoAtual: p.sessao_atual !== undefined ? p.sessao_atual : localObj.sessaoAtual,
+                totalSessoes: p.total_sessoes !== undefined ? p.total_sessoes : localObj.totalSessoes,
+                historico_enfermagem: histEnf,
+                historico_tecnico: histTec,
+                historico_medico: histMed
               };
             }
           });
