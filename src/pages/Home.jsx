@@ -11,8 +11,7 @@ export function Home({ onNav, perfil, onSair }) {
     { id: "masculina", label: "Área Masculina", icon: "💙", color: C.blue, desc: "Próstata & bem-estar", publico: "masculino" },
     { id: "kids", label: "Área Kids", icon: "⭐", color: C.gold, desc: "Heróis do Raio do Bem", publico: "todos" },
     { id: "direitos", label: "Meus Direitos", icon: "⚖️", color: C.green, desc: "Direitos do paciente", publico: "todos" },
-    { id: "jogos", label: "Jogos & Diversão", icon: "🎮", color: C.gold, desc: "Para esperar brincando", publico: "todos" },
-    { id: "ia", label: "Assistente IA", icon: "🤖", color: C.teal, desc: "Tire dúvidas com IA", publico: "todos" },
+    { id: "jogos", label: "Jogos & Diversão", icon: "🎮", color: C.gold, desc: "Para esperar brincando", publico: "todos" }
   ];
 
   // Filtra as áreas permitidas para o paciente logado

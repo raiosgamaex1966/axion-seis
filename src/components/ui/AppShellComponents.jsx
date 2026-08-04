@@ -39,7 +39,6 @@ export function Nav({ page, onNav, role = "paciente" }) {
   if (role === "medico") {
     items = [
       { id: "profissional", icon: "🏥", label: "Painel Clínico" },
-      { id: "ia", icon: "🤖", label: "Assistente IA" },
       { id: "direitos", icon: "⚖️", label: "Direitos" }
     ];
   } else {
@@ -47,7 +46,6 @@ export function Nav({ page, onNav, role = "paciente" }) {
     items = [
       { id: "home", icon: "🏠", label: "Início" },
       { id: "paciente", icon: "📊", label: "Meu Perfil" },
-      { id: "ia", icon: "🤖", label: "IA AXION" },
       { id: "direitos", icon: "⚖️", label: "Direitos" }
     ];
   }
